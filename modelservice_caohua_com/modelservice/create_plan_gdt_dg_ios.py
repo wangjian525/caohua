@@ -18,6 +18,8 @@ import logging
 warnings.filterwarnings('ignore')
 logger = logging.getLogger('CreatePlangdtdgIOS')
 
+from modelservice.__myconf__ import get_var
+dicParam = get_var()
 
 #
 # 打包接口
@@ -43,8 +45,8 @@ class CreatePlangdtdgIOS:
 
 
 def get_game_id():
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1112 AND dev_game_id IS NOT NULL 
@@ -62,8 +64,8 @@ def get_plan_info():
     game_id = list(map(lambda x: x['game_id'], game_id))
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
-    conn = pymysql.connect(host='db-slave-modeltoufang-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8', db='db_ptom')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_TOUFANG_HOST'], port=int(dicParam['DB_SLAVE_TOUFANG_PORT']), user=dicParam['DB_SLAVE_TOUFANG_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_TOUFANG_PASSWORD'], db=dicParam['DB_SLAVE_TOUFANG_DATABASE'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
     /*手动查询*/
@@ -97,8 +99,8 @@ def get_plan_info():
 
 # 获取image_id,label_ids
 def get_image_info():
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         SELECT
@@ -133,8 +135,8 @@ def get_launch_report():
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
 
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         /*手动查询*/
@@ -264,8 +266,8 @@ def get_creative():
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
 
-    conn = pymysql.connect(host='db-slave-modeltoufang-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8', db='db_ptom')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_TOUFANG_HOST'], port=int(dicParam['DB_SLAVE_TOUFANG_PORT']), user=dicParam['DB_SLAVE_TOUFANG_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_TOUFANG_PASSWORD'], db=dicParam['DB_SLAVE_TOUFANG_DATABASE'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         /*手动查询*/ 
@@ -294,8 +296,8 @@ def get_creative():
 
 # 获取score_image (远期：分数大于600的i素材)
 def get_score_image():
-    conn = connect(host='192.168.0.97', port=10000, auth_mechanism='PLAIN', user='hadoop',
-                   password='Ycjh8FxiaoMtShZRd3-97%3hCEL0CK4ns1w', database='default')
+    conn = connect(host=dicParam['HIVE_HOST'], port=int(dicParam['HIVE_PORT']), auth_mechanism=dicParam['HIVE_AUTH_MECHANISM'], user=dicParam['HIVE_USERNAME'],
+                   password=dicParam['HIVE_PASSWORD'], database=dicParam['HIVE_DATABASE'])
     cursor = conn.cursor()
     sql_engine = 'set hive.execution.engine=tez'
     sql = 'select image_id,label_ids from dws.dws_image_score_d where media_id=16 and score>=600 and dt>= date_sub(current_date, 60) group by image_id,label_ids'
@@ -315,8 +317,8 @@ def get_score_image():
 
 # 获取current_image (近期：分数大于550的i素材)
 def get_current_image():
-    conn = connect(host='192.168.0.97', port=10000, auth_mechanism='PLAIN', user='hadoop',
-                   password='Ycjh8FxiaoMtShZRd3-97%3hCEL0CK4ns1w', database='default')
+    conn = connect(host=dicParam['HIVE_HOST'], port=int(dicParam['HIVE_PORT']), auth_mechanism=dicParam['HIVE_AUTH_MECHANISM'], user=dicParam['HIVE_USERNAME'],
+                   password=dicParam['HIVE_PASSWORD'], database=dicParam['HIVE_DATABASE'])
     cursor = conn.cursor()
     sql_engine = 'set hive.execution.engine=tez'
     sql = 'select image_id,label_ids from dws.dws_image_score_d where media_id=16 and score>=550 and dt=current_date group by image_id,label_ids'
@@ -342,8 +344,8 @@ def get_now_plan_roi():
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
 
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         SELECT
@@ -817,6 +819,7 @@ def main_model():
                       "intention", "interest", "behavior"], axis=1, inplace=True)
 
     # plan_result['operation'] = 'disable'
+    plan_result['plan_auto_task_id'] = "11427,12063"
     plan_result['op_id'] = 13268
     plan_result['flag'] = 'GDT_IOS'
     plan_result['game_name'] = plan_result['game_id'].map({1001701:'称霸时代',1001783:'帝都战纪',1001608:'帝国战魂',1001657:'文明启航'})

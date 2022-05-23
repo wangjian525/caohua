@@ -6,18 +6,23 @@ from modelservice import PtomPredict
 from modelservice import CurveFit
 from modelservice import ImageScore
 from modelservice import ImageScoreDg
+from modelservice import ImageScoreJp
+from modelservice import ImageScoreTk
+from modelservice import ImageScoreDdj
 from modelservice import CreatePlan
 from modelservice import CreatePlan2
 from modelservice import CreatePlanDg
 from modelservice import CreatePlanDggz
 from modelservice import CreatePlangdt
 from modelservice import CreatePlangdtdg
-from modelservice import ImageScoreJp
 from modelservice import CreatePlangdtjp
 from modelservice import AccountFilter
 from modelservice import CreatePlangdtMrIos
 from modelservice import CreatePlanttdgIOS
 from modelservice import CreatePlangdtdgIOS
+from modelservice import CalculateNmi
+from modelservice import Pay7Predict
+from modelservice import RecommendedAmount
 #
 # 初始化全局日志配置
 #
@@ -57,6 +62,8 @@ urls = (
     '/ImageScore', ImageScore,
     '/ImageScoreDg', ImageScoreDg,
     '/ImageScoreJp', ImageScoreJp,
+    '/ImageScoreTk', ImageScoreTk,
+    '/ImageScoreDdj', ImageScoreDdj,
     '/CreatePlan', CreatePlan,
     '/CreatePlan2', CreatePlan2,
     '/CreatePlanDggz', CreatePlanDggz,
@@ -67,7 +74,10 @@ urls = (
     '/AccountFilter', AccountFilter,
     '/CreatePlangdtMrIos', CreatePlangdtMrIos,
     '/CreatePlanttdgIOS', CreatePlanttdgIOS,
-    '/CreatePlangdtdgIOS', CreatePlangdtdgIOS
+    '/CreatePlangdtdgIOS', CreatePlangdtdgIOS,
+    '/CalculateNmi', CalculateNmi,
+    '/Pred7Pay', Pay7Predict,
+    '/RecommendedAmount', RecommendedAmount
 )
 
 #

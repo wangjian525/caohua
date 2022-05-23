@@ -10,6 +10,9 @@ import warnings
 warnings.filterwarnings('ignore')
 logger = logging.getLogger('AccountFilter')
 
+from modelservice.__myconf__ import get_var
+dicParam = get_var()
+
 
 #
 # 打包接口
@@ -36,8 +39,8 @@ class AccountFilter:
 
 
 def get_account_info():
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         /*手动查询*/ 
@@ -128,9 +131,9 @@ def get_account_info():
 def load_to_hive():
     # 将生成的csv文件加载到hive中
     run_dt = datetime.datetime.now().strftime('%Y-%m-%d')
-    os.system("hadoop fs -rm -r hdfs://192.168.0.96:8020/warehouse/tablespace/managed/hive/dws.db/account_info/dt="+run_dt)
-    os.system("hadoop fs -mkdir hdfs://192.168.0.96:8020/warehouse/tablespace/managed/hive/dws.db/account_info/dt=" + run_dt)
-    os.system("hadoop fs -put account_info.csv hdfs://192.168.0.96:8020/warehouse/tablespace/managed/hive/dws.db/account_info/dt="+run_dt)
+    os.system("hadoop fs -rm -r /warehouse/tablespace/managed/hive/dws.db/account_info/dt="+run_dt)
+    os.system("hadoop fs -mkdir /warehouse/tablespace/managed/hive/dws.db/account_info/dt=" + run_dt)
+    os.system("hadoop fs -put account_info.csv /warehouse/tablespace/managed/hive/dws.db/account_info/dt="+run_dt)
     os.system("beeline -u \"jdbc:hive2://bigdata-zk01.ch:2181,bigdata-zk02.ch:2181,bigdata-zk03.ch:2181/;serviceDiscoveryMode=zooKeeper;zooKeeperNamespace=hiveserver2\" -nhive -phive -e \"msck repair table dws.account_info\"")
 
 

@@ -19,6 +19,8 @@ import logging
 warnings.filterwarnings('ignore')
 logger = logging.getLogger('CreatePlanDggz')
 
+from modelservice.__myconf__ import get_var
+dicParam = get_var()
 
 #
 # 打包接口

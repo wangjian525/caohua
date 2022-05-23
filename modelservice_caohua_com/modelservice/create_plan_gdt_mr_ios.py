@@ -20,6 +20,8 @@ import logging
 warnings.filterwarnings('ignore')
 logger = logging.getLogger('CreatePlangdtMrIos')
 
+from modelservice.__myconf__ import get_var
+dicParam = get_var()
 
 #
 # 打包接口
@@ -43,9 +45,10 @@ class CreatePlangdtMrIos:
         ret = json.dumps({"code": 200, "msg": "success!", "data": "create ios gdt mo plan is  success"})
         return ret
 
+
 def get_game_id():
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1056 AND dev_game_id IS NOT NULL 
@@ -63,8 +66,8 @@ def get_plan_info():
     game_id = list(map(lambda x: x['game_id'], game_id))
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
-    conn = pymysql.connect(host='db-slave-modeltoufang-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8', db='db_ptom')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_TOUFANG_HOST'], port=int(dicParam['DB_SLAVE_TOUFANG_PORT']), user=dicParam['DB_SLAVE_TOUFANG_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_TOUFANG_PASSWORD'], db=dicParam['DB_SLAVE_TOUFANG_DATABASE'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
     /*手动查询*/
@@ -98,8 +101,8 @@ def get_plan_info():
 
 # 获取image_id,label_ids
 def get_image_info():
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         SELECT
@@ -134,8 +137,8 @@ def get_launch_report():
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
 
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         /*手动查询*/
@@ -265,8 +268,8 @@ def get_creative():
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
 
-    conn = pymysql.connect(host='db-slave-modeltoufang-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8', db='db_ptom')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_TOUFANG_HOST'], port=int(dicParam['DB_SLAVE_TOUFANG_PORT']), user=dicParam['DB_SLAVE_TOUFANG_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_TOUFANG_PASSWORD'], db=dicParam['DB_SLAVE_TOUFANG_DATABASE'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         /*手动查询*/ 
@@ -295,8 +298,8 @@ def get_creative():
 
 # 获取score_image (分数大于550的image_id)
 def get_score_image():
-    conn = connect(host='192.168.0.97', port=10000, auth_mechanism='PLAIN', user='hadoop',
-                   password='Ycjh8FxiaoMtShZRd3-97%3hCEL0CK4ns1w', database='default')
+    conn = connect(host=dicParam['HIVE_HOST'], port=int(dicParam['HIVE_PORT']), auth_mechanism=dicParam['HIVE_AUTH_MECHANISM'], user=dicParam['HIVE_USERNAME'],
+                   password=dicParam['HIVE_PASSWORD'], database=dicParam['HIVE_DATABASE'])
     cursor = conn.cursor()
     sql_engine = 'set hive.execution.engine=tez'
     sql = 'select image_id,label_ids from dws.dws_image_score_d where media_id=16 and score>=520 and dt=CURRENT_DATE group by image_id,label_ids'  ## TODO:520分
@@ -321,8 +324,8 @@ def get_now_plan_roi():
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
 
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         SELECT
@@ -363,7 +366,7 @@ def get_now_plan_roi():
 
 def create_plan(df, score_image):
     # 选ad_account_id、image_id每个账号+素材8条
-    game_id = 1001617  ## 选择包：明日战纪-ios-IOS联运
+    game_id = 1001446  ## 选择包：幸存挑战 - 曙光信仰
     df = df[df['game_id'].isin([1001617, 1001447, 1001446, 1001611, 1001613, 1001444, 1001609, 1001610])]
     ## 候选计划的包ID限制（明日战纪-ios-IOS联运，n1计划-IOS联运-IOS联运，幸存挑战 - 曙光信仰-IOS联运, 迷岛生存IOS-IOS联运, 潜藏之地-IOS联运,
     # 绝地末日 - IOS联运 - IOS联运# , 迷城起源-黎明危域-IOS联运, 黎明血战-IOS-IOS联运）
@@ -438,7 +441,7 @@ def create_plan(df, score_image):
         plan[col] = plan.apply(lambda x: np.random.choice(count_df['col'].values, 1, p=count_df['pct'].values)[0],
                                axis=1)
 
-    plan['promoted_object_id'] = '1570594902'
+    plan['promoted_object_id'] = '1573087927'  ## TODO
     plan['create_time'] = pd.to_datetime(pd.datetime.now())
     plan['create_date'] = pd.to_datetime(pd.datetime.now().date())
     plan = plan.reset_index(drop=True)
@@ -497,8 +500,8 @@ def get_train_df():
                          how='inner')
     # df_create = df_create[df_create['site_set'].notna()]  ## 注释掉：以支持自动化版位
 
-    # 先只跑首次付费，ROI没有权限  ## TODO:ROI
-    df_create = df_create[(df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_FIRST_PURCHASE') | (df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_PURCHASE')]
+    # # 先只跑首次付费，ROI没有权限  ## TODO:ROI
+    # df_create = df_create[(df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_FIRST_PURCHASE')|(df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_PURCHASE')]
 
     df_create.to_csv('./df_create.csv', index=0)
     plan_create = create_plan(df_create, score_image)
@@ -651,8 +654,8 @@ def main_model():
     plan_result['weight'] = plan_result.groupby(['ad_account_id'])['game_id'].transform('count')
     plan_result['site_set'] = plan_result['site_set'].map(str)
 
-    if plan_result.shape[0] > 60:
-        plan_result = plan_result.sample(60, weights=plan_result['weight'])
+    if plan_result.shape[0] > 80:
+        plan_result = plan_result.sample(80, weights=plan_result['weight'])
 
     ad_num = plan_result['image_id'].value_counts()
     for ad in np.setdiff1d(plan_create['image_id'].values, ad_num[ad_num >= 2].index):
@@ -671,15 +674,12 @@ def main_model():
 
     plan_result['location_types'] = plan_result['location_types'].apply(lambda x: ['LIVE_IN'] if x == x else x)
 
-    # 修改落地页ID
+    # 修改落地页ID   幸存挑战-曙光
     plan_result['page_spec'] = plan_result.apply(
         lambda x: {'override_canvas_head_option': 'OPTION_CREATIVE_OVERRIDE_CANVAS',
-                   'page_id': '2270553984'} if x.site_set == "['SITE_SET_MOMENTS']"
+                   'page_id': '2279177200'} if x.site_set == "['SITE_SET_MOMENTS']"
         else ({'override_canvas_head_option': 'OPTION_CREATIVE_OVERRIDE_CANVAS',
-               'page_id': '2270572926'} if x.site_set == "['SITE_SET_WECHAT']" else np.nan), axis=1)
-    # plan_result['link_page_spec'] = plan_result.apply(
-    #     lambda x: 'LINK_PAGE_TYPE_DEFAULT' if x.site_set == "['SITE_SET_MOMENTS']"
-    #     else ('LINK_PAGE_TYPE_DEFAULT' if x.site_set == "['SITE_SET_WECHAT']" else np.nan), axis=1)
+               'page_id': '2279210055'} if x.site_set == "['SITE_SET_WECHAT']" else np.nan), axis=1)
 
     # plan_result['page_spec'] = plan_result.apply(
     #     lambda x: {'override_canvas_head_option': 'OPTION_CREATIVE_OVERRIDE_CANVAS',
@@ -694,8 +694,13 @@ def main_model():
     plan_result['ad_account_id'] = plan_result['ad_account_id'].map(str)
     plan_result_1 = plan_result[plan_result['site_set'] == "['SITE_SET_MOMENTS']"]
     plan_result_2 = plan_result[plan_result['site_set'] != "['SITE_SET_MOMENTS']"]
-    profile_id_dict = {'9217': '555139', '9218': '555154', '9219': '555167', '9220': '555191', '9221': '555200',
-                       '9223': '555218', '9224': '555232', '9225': '555242', '9226': '555251', '9227': '555286'}
+    # 明日战纪头像
+    # profile_id_dict = {'9217': '555139', '9218': '555154', '9219': '555167', '9220': '555191', '9221': '555200',
+    #                    '9223': '555218', '9224': '555232', '9225': '555242', '9226': '555251', '9227': '555286'}
+    # 幸存曙光头像
+    profile_id_dict = {'9217': '576018', '9218': '576029', '9219': '576037', '9220': '576054', '9221': '576082',
+                       '9223': '576104', '9224': '576126', '9225': '576137', '9226': '576145', '9227': '576159'}
+
     plan_result_1['profile_id'] = plan_result_1['ad_account_id'].map(profile_id_dict)
 
     plan_result = plan_result_1.append(plan_result_2)
@@ -756,9 +761,10 @@ def main_model():
                       "intention", "interest", "behavior"], axis=1, inplace=True)
 
     # plan_result['operation'] = 'disable'
+    plan_result['plan_auto_task_id'] = "11427,12063"
     plan_result['op_id'] = 13268
     plan_result['flag'] = 'GDT'
-    plan_result['game_name'] = '明日战纪'
+    plan_result['game_name'] = '曙光'
     plan_result['platform'] = 2
     plan_result['ad_account_id'] = plan_result['ad_account_id'].astype(int)
     plan_result['site_set'] = plan_result['site_set'].apply(ast.literal_eval)
@@ -772,7 +778,7 @@ def main_model():
     # plan_result = plan_result[plan_result['automatic_site_enabled'] == True].iloc[:3]  ## 自动版位测试
     # get_ad_create(plan_result)
     # print("[INFO]: 新建计划创建完毕！")
-
+    # print(plan_result.shape[0])
     # plan_result_seg = pd.DataFrame()
     # for i in range(plan_result.shape[0]):
     #     plan_result_seg = plan_result_seg.append(plan_result.iloc[i:i + 1])

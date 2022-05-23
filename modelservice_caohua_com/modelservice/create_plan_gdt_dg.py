@@ -12,6 +12,7 @@ from impala.util import as_pandas
 import pymysql
 import ast
 import requests
+import re
 from itertools import combinations
 from tqdm import tqdm_notebook
 import logging
@@ -19,6 +20,8 @@ import logging
 warnings.filterwarnings('ignore')
 logger = logging.getLogger('CreatePlangdtdg')
 
+from modelservice.__myconf__ import get_var
+dicParam = get_var()
 
 #
 # 打包接口
@@ -44,8 +47,8 @@ class CreatePlangdtdg:
 
 
 def get_game_id():
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1112 AND dev_game_id IS NOT NULL 
@@ -63,8 +66,8 @@ def get_plan_info():
     game_id = list(map(lambda x: x['game_id'], game_id))
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
-    conn = pymysql.connect(host='db-slave-modeltoufang-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8', db='db_ptom')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_TOUFANG_HOST'], port=int(dicParam['DB_SLAVE_TOUFANG_PORT']), user=dicParam['DB_SLAVE_TOUFANG_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_TOUFANG_PASSWORD'], db=dicParam['DB_SLAVE_TOUFANG_DATABASE'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
     /*手动查询*/
@@ -98,10 +101,11 @@ def get_plan_info():
 
 # 获取image_id,label_ids
 def get_image_info():
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
+        /*手动查询*/
         SELECT
             a.chl_user_id AS channel_id,
             a.source_id,
@@ -134,8 +138,8 @@ def get_launch_report():
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
 
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         /*手动查询*/
@@ -257,15 +261,15 @@ def get_plan_json(plan_info):
     return plan_info
 
 
-# 获取近期60天优化计划的创意数据
+# 获取近期30天优化计划的创意数据
 def get_creative():
     game_id = get_game_id()
     game_id = list(map(lambda x: x['game_id'], game_id))
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
 
-    conn = pymysql.connect(host='db-slave-modeltoufang-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8', db='db_ptom')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_TOUFANG_HOST'], port=int(dicParam['DB_SLAVE_TOUFANG_PORT']), user=dicParam['DB_SLAVE_TOUFANG_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_TOUFANG_PASSWORD'], db=dicParam['DB_SLAVE_TOUFANG_DATABASE'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         /*手动查询*/ 
@@ -294,11 +298,11 @@ def get_creative():
 
 # 获取score_image (分数大于550的image_id)
 def get_score_image():
-    conn = connect(host='192.168.0.97', port=10000, auth_mechanism='PLAIN', user='hadoop',
-                   password='Ycjh8FxiaoMtShZRd3-97%3hCEL0CK4ns1w', database='default')
+    conn = connect(host=dicParam['HIVE_HOST'], port=int(dicParam['HIVE_PORT']), auth_mechanism=dicParam['HIVE_AUTH_MECHANISM'], user=dicParam['HIVE_USERNAME'],
+                   password=dicParam['HIVE_PASSWORD'], database=dicParam['HIVE_DATABASE'])
     cursor = conn.cursor()
     sql_engine = 'set hive.execution.engine=tez'
-    sql = 'select image_id,label_ids from dws.dws_image_score_d where media_id=16 and score>=480 and dt=CURRENT_DATE group by image_id,label_ids'
+    sql = 'select image_id,label_ids from dws.dws_image_score_d where media_id=16 and score>=500 and dt=CURRENT_DATE group by image_id,label_ids'
     cursor.execute(sql_engine)
     cursor.execute(sql)
     result = as_pandas(cursor)
@@ -320,10 +324,11 @@ def get_now_plan_roi():
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
 
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
+        /*手动查询*/
         SELECT
             a.ad_account_id,
             b.channel_id,
@@ -343,7 +348,7 @@ def get_now_plan_roi():
             AND b.tdate_type = 'day' 
             AND b.media_id = 16 
             AND b.game_id IN ({}) 
-            AND b.amount > 0 
+            AND b.amount > 0  
             AND b.pay_role_user_num >= 1 
             AND b.new_role_money >= 6
             AND (b.new_role_money / b.amount)>=0.001
@@ -362,9 +367,9 @@ def get_now_plan_roi():
 
 def create_plan(df, score_image):
     # 选ad_account_id、image_id每个账号+素材8条
-    game_id = 1001545
+    game_id = 1001832
     # df = df[df['game_id'] == game_id]
-    df = df[df['game_id'].isin([1001545, 1001465])]
+    df = df[df['game_id'].isin([1001545, 1001465, 1001832, 1001834])]
     ad_account_id_group = np.array([8499, 8500, 8501, 8502, 8503, 8504, 8505, 8506, 8507, 8508,
                                     8518, 8517, 8516, 8515, 8514, 8513, 8512, 8511, 8510, 8509])
 
@@ -410,6 +415,7 @@ def create_plan(df, score_image):
          'automatic_site_enabled', 'label', 'adcreative_elements',
          'optimization_goal', 'bid_strategy', 'bid_amount', 'deep_conversion_type', 'deep_conversion_behavior_spec',
          'deep_conversion_worth_spec']]
+
     plan_ = pd.DataFrame()
     for image_id in image_id_group:
         plan_1 = plan[plan['image_id'] == image_id]
@@ -438,7 +444,7 @@ def create_plan(df, score_image):
         plan[col] = plan.apply(lambda x: np.random.choice(count_df['col'].values, 1, p=count_df['pct'].values)[0],
                                axis=1)
 
-    plan['promoted_object_id'] = '1111430997'
+    plan['promoted_object_id'] = '2000001805'
     plan['create_time'] = pd.to_datetime(pd.datetime.now())
     plan['create_date'] = pd.to_datetime(pd.datetime.now().date())
     plan = plan.reset_index(drop=True)
@@ -495,6 +501,12 @@ def get_train_df():
     df_create = pd.merge(df_create, now_plan_roi.drop(['ad_account_id'], axis=1), on=['channel_id', 'source_id'],
                          how='inner')
     df_create = df_create[df_create['site_set'].notna()]
+
+    # 只跑ROI  ## TODO:ROI
+    # df_create = df_create[(df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_ACTIVATE') | (df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_PURCHASE')]
+
+    # df_create = df_create[df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_ACTIVATE']
+    # df_create = df_create[df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_PURCHASE']
 
     df_create.to_csv('./df_create.csv', index=0)
     plan_create = create_plan(df_create, score_image)
@@ -582,6 +594,28 @@ def get_ad_create(plan_result):
     return rsp_data
 
 
+def doSubStr(x):
+    if '罗马争端' in x:
+        res = re.sub('罗马争端', '罗马:亚洲王朝', x)
+    elif '伐木时代' in x:
+        res = re.sub('伐木时代', '罗马:亚洲王朝', x)
+    elif '罗马单机版' in x:
+        res = re.sub('罗马单机版', '罗马:亚洲王朝', x)
+    elif '罗马：单机版' in x:
+        res = re.sub('罗马：单机版', '罗马:亚洲王朝', x)
+    elif '帝国：单机加强版' in x:
+        res = re.sub('帝国：单机加强版', '罗马:亚洲王朝', x)
+    elif '帝国纪元：单机版' in x:
+        res = re.sub('帝国纪元：单机版', '罗马:亚洲王朝', x)
+    elif '帝国纪元' in x:
+        res = re.sub('帝国纪元', '罗马:亚洲王朝', x)
+    elif '帝国' in x:
+        res = re.sub('帝国', '帝王', x)
+    else:
+        res = x
+    return res
+
+
 def main_model():
     df, plan_create = get_train_df()
     train_data = df[df['train_label'] == 1]
@@ -622,7 +656,7 @@ def main_model():
     y_predict = model.predict(features_test)
 
     plan_create['prob'] = y_predict
-    threshold = pd.Series(y_predict).sort_values(ascending=False).reset_index(drop=True)[int(y_predict.shape[0] * 0.4)]
+    threshold = pd.Series(y_predict).sort_values(ascending=False).reset_index(drop=True)[int(y_predict.shape[0] * 0.7)]
 
     plan_result = plan_create[plan_create['prob'] >= threshold]
     plan_result['rank_ad_im'] = plan_result.groupby(['ad_account_id', 'image_id'])['prob'].rank(ascending=False,
@@ -646,17 +680,29 @@ def main_model():
     plan_result['weight'] = plan_result.groupby(['ad_account_id'])['game_id'].transform('count')
     plan_result['site_set'] = plan_result['site_set'].map(str)
 
-    if plan_result.shape[0] > 80:
-        plan_result = plan_result.sample(80, weights=plan_result['weight'])
+    # if plan_result.shape[0] > 40:
+    #     plan_result = plan_result.sample(40, weights=plan_result['weight'])
 
-    ad_num = plan_result['image_id'].value_counts()
-    for ad in np.setdiff1d(plan_create['image_id'].values, ad_num[ad_num >= 2].index):
-        add_plan = plan_result_pr[plan_result_pr['image_id'] == ad].sort_values('prob', ascending=False)[0:2]
-        add_plan['site_set'] = add_plan['site_set'].map(str)
-        plan_result = plan_result.append(add_plan)
+    ad_account_id_group = np.array([8499, 8500, 8502, 8503, 8504, 8505, 8506, 8507,
+                                    8517, 8514, 8513, 8512])
+    plan_num = 5
+    plan_result_n = pd.DataFrame()
+    for account_id in ad_account_id_group:
+        plan_result_ = plan_result[plan_result['ad_account_id'] == account_id]
+        plan_result_ = plan_result_.sample(plan_num)
+        plan_result_n = plan_result_n.append(plan_result_)
+    plan_result = plan_result_n
+
+    # ad_num = plan_result['image_id'].value_counts()
+    # for ad in np.setdiff1d(plan_create['image_id'].values, ad_num[ad_num >= 2].index):
+    #     add_plan = plan_result_pr[plan_result_pr['image_id'] == ad].sort_values('prob', ascending=False)[0:2]
+    #     add_plan['site_set'] = add_plan['site_set'].map(str)
+    #     plan_result = plan_result.append(add_plan)
+
     plan_result['rank_ad_im'] = plan_result.groupby(['ad_account_id', 'image_id'])['prob'].rank(ascending=False,
                                                                                                 method='first')
     plan_result = plan_result[plan_result['rank_ad_im'] <= 1]
+
     plan_result = plan_result.drop(['create_time', 'create_date', 'prob', 'rank_ad_im', 'label_ids', 'weight'], axis=1)
 
     # [SITE_SET_WECHAT] 公众号和小程序adcreative_template_id只跑1480、560、720、721、1064五种
@@ -674,29 +720,67 @@ def main_model():
                                     120000, 110000,
                                     640000, 530000, 210000, 610000, 520000, 810000, 230000, 460000, 440000, 500000,
                                     410000, 620000, 430000])
-    plan_result['location_types'] = plan_result['location_types'].apply(lambda x: ['LIVE_IN'] if x == x else x)
+    plan_result['location_types'] = plan_result['location_types'].apply(lambda x: ['LIVE_IN'])
     # 修改落地页ID
     plan_result['page_spec'] = plan_result.apply(
         lambda x: {'override_canvas_head_option': 'OPTION_CREATIVE_OVERRIDE_CANVAS',
-                   'page_id': '2230233357'} if x.site_set == "['SITE_SET_MOMENTS']"
+                   'page_id': '2268166449'} if x.site_set == "['SITE_SET_MOMENTS']"
         else ({'override_canvas_head_option': 'OPTION_CREATIVE_OVERRIDE_CANVAS',
-               'page_id': '2230244370'} if x.site_set == "['SITE_SET_WECHAT']" else np.nan), axis=1)
+               'page_id': '2268167873'} if x.site_set == "['SITE_SET_WECHAT']" else np.nan), axis=1)
     plan_result['link_page_spec'] = plan_result.apply(
-        lambda x: {'page_id': '2230233357'} if x.site_set == "['SITE_SET_MOMENTS']"
-        else ({'page_id': '2230244370'} if x.site_set == "['SITE_SET_WECHAT']" else np.nan), axis=1)
+        lambda x: {'page_id': '2268166449'} if x.site_set == "['SITE_SET_MOMENTS']"
+        else ({'page_id': '2268167873'} if x.site_set == "['SITE_SET_WECHAT']" else np.nan), axis=1)
 
     # 朋友圈头像ID
     plan_result['ad_account_id'] = plan_result['ad_account_id'].map(str)
     plan_result_1 = plan_result[plan_result['site_set'] == "['SITE_SET_MOMENTS']"]
     plan_result_2 = plan_result[plan_result['site_set'] != "['SITE_SET_MOMENTS']"]
-    profile_id_dict = {'8499': '464718', '8500': '464737', '8501': '464749', '8502': '464757', '8503': '464767',
-                       '8504': '464773', '8505': '464779', '8506': '464788', '8507': '464796', '8508': '464803',
-                       '8518': '520038', '8517': '520048', '8516': '520069', '8515': '520082', '8514': '520101',
-                       '8513': '520116', '8512': '520120', '8511': '520133', '8510': '520147', '8509': '520154'}
+    # profile_id_dict = {'8499': '464718', '8500': '464737', '8501': '464749', '8502': '464757', '8503': '464767',
+    #                    '8504': '464773', '8505': '464779', '8506': '464788', '8507': '464796', '8508': '464803',
+    #                    '8518': '520038', '8517': '520048', '8516': '520069', '8515': '520082', '8514': '520101',
+    #                    '8513': '520116', '8512': '520120', '8511': '520133', '8510': '520147', '8509': '520154'}
+    profile_id_dict = {'8499': '549404', '8500': '549423', '8501': '549434', '8502': '549448', '8503': '549452',
+                       '8504': '549459', '8505': '549465', '8506': '549474', '8507': '549479', '8508': '549487',
+                       '8518': '549495', '8517': '549514', '8516': '549522', '8515': '549534', '8514': '549545',
+                       '8513': '549564', '8512': '549571', '8511': '549578', '8510': '549586', '8509': '549590'}
     plan_result_1['profile_id'] = plan_result_1['ad_account_id'].map(profile_id_dict)
 
     plan_result = plan_result_1.append(plan_result_2)
     plan_result = plan_result.reset_index(drop=True)
+
+    # 屏蔽“帝国”字样
+    plan_result['adcreative_elements'] = plan_result['adcreative_elements'].map(str)
+    plan_result['adcreative_elements'] = plan_result['adcreative_elements'].apply(doSubStr)
+    plan_result['adcreative_elements'] = plan_result['adcreative_elements'].apply(doSubStr)
+    plan_result['adcreative_elements'] = plan_result['adcreative_elements'].apply(ast.literal_eval)
+
+    # 分配出价方式
+    plan_result['ad_account_id'] = plan_result['ad_account_id'].map(int)
+    # plan_result_n = pd.DataFrame()
+    # for account_id in ad_account_id_group:
+    #     plan_result_ = plan_result[plan_result['ad_account_id'] == account_id]
+    #     plan_result_ = plan_result_.reset_index(drop=True)
+    #     plan_result_1 = plan_result_.sample(0)
+    #     plan_result_2 = plan_result_.drop(plan_result_1.index, axis=0)
+    #     plan_result_1['optimization_goal'] = plan_result_1['optimization_goal'].apply(lambda x:'OPTIMIZATIONGOAL_APP_PURCHASE')
+    #     plan_result_2['optimization_goal'] = plan_result_2['optimization_goal'].apply(lambda x: 'OPTIMIZATIONGOAL_APP_ACTIVATE')
+    #     plan_result_1 = plan_result_1.append(plan_result_2)
+    #     plan_result_n = plan_result_n.append(plan_result_1)
+    # plan_result = plan_result_n.reset_index(drop=True)
+
+    # 调低ROI系数  ##TODO
+    plan_result['optimization_goal'] = plan_result['optimization_goal'].apply(lambda x: 'OPTIMIZATIONGOAL_APP_ACTIVATE')   ## TODO  固定ROI
+    plan_result['deep_conversion_type'] = plan_result['optimization_goal'].apply(
+        lambda x: 'DEEP_CONVERSION_WORTH' if x == 'OPTIMIZATIONGOAL_APP_ACTIVATE' else np.nan)
+
+    plan_result['deep_conversion_worth_spec'] = plan_result['optimization_goal'].apply(
+        lambda x: {'goal': 'GOAL_1DAY_PURCHASE_ROAS',
+                   'expected_roi': 0.015} if x == 'OPTIMIZATIONGOAL_APP_ACTIVATE' else np.nan)
+    # 固定出价
+    plan_result['bid_amount'] = plan_result['optimization_goal'].apply(
+        lambda x: random.randint(65000, 70000) if x == 'OPTIMIZATIONGOAL_APP_ACTIVATE'
+        else (random.randint(110000, 120000) if x == 'OPTIMIZATIONGOAL_APP_PURCHASE'
+              else (random.randint(220000, 230000))))
 
     # 定义组合json
     plan_result['intention'] = plan_result['intention_targeting_tags'].apply(lambda x: {'targeting_tags': x})
@@ -750,9 +834,10 @@ def main_model():
                       "intention", "interest", "behavior"], axis=1, inplace=True)
 
     # plan_result['operation'] = 'disable'
+    plan_result['plan_auto_task_id'] = "11427,12063"
     plan_result['op_id'] = 13268
     plan_result['flag'] = 'GDT'
-    plan_result['game_name'] = '罗马争端'
+    plan_result['game_name'] = '亚洲王朝'
     plan_result['platform'] = 1
     plan_result['ad_account_id'] = plan_result['ad_account_id'].astype(int)
     plan_result['site_set'] = plan_result['site_set'].apply(ast.literal_eval)
@@ -764,7 +849,7 @@ def main_model():
     plan_result['site_set'] = plan_result['site_set'].apply(lambda x: list(filter(is_in_list, x)))
     plan_result.drop('page_type', axis=1, inplace=True)
     plan_result.to_csv('./plan_result.csv', index=0)  # 保存创建日志
-
+    print(plan_result.shape[0])
     # plan_result_seg = pd.DataFrame()
     # for i in range(plan_result.shape[0]):
     #     plan_result_seg = plan_result_seg.append(plan_result.iloc[i:i + 1])

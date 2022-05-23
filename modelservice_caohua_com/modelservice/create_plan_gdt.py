@@ -20,6 +20,8 @@ import logging
 warnings.filterwarnings('ignore')
 logger = logging.getLogger('CreatePlangdt')
 
+from modelservice.__myconf__ import get_var
+dicParam = get_var()
 
 #
 # 打包接口
@@ -45,8 +47,9 @@ class CreatePlangdt:
 
 
 def get_game_id():
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
+
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1056 AND dev_game_id IS NOT NULL 
@@ -57,15 +60,14 @@ def get_game_id():
     conn.close()
     return result_df
 
-
 # 获取近期所有计划()
 def get_plan_info():
     game_id = get_game_id()
     game_id = list(map(lambda x: x['game_id'], game_id))
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
-    conn = pymysql.connect(host='db-slave-modeltoufang-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8', db='db_ptom')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_TOUFANG_HOST'], port=int(dicParam['DB_SLAVE_TOUFANG_PORT']), user=dicParam['DB_SLAVE_TOUFANG_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_TOUFANG_PASSWORD'], db=dicParam['DB_SLAVE_TOUFANG_DATABASE'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
     /*手动查询*/
@@ -99,10 +101,11 @@ def get_plan_info():
 
 # 获取image_id,label_ids
 def get_image_info():
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
+        /*手动查询*/
         SELECT
             a.chl_user_id AS channel_id,
             a.source_id,
@@ -135,8 +138,8 @@ def get_launch_report():
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
 
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         /*手动查询*/
@@ -191,47 +194,83 @@ def get_plan_json(plan_info):
     plan_info = pd.concat([plan_info, temp], axis=1)
     plan_info.drop('deep_conversion_spec', axis=1, inplace=True)
 
-    temp = plan_info['behavior_or_interest'].apply(pd.Series)
-    plan_info = pd.concat([plan_info, temp], axis=1)
-    plan_info.drop('behavior_or_interest', axis=1, inplace=True)
-    plan_info.drop(0, axis=1, inplace=True)
+    if 'behavior_or_interest' in plan_info.columns:
+        temp = plan_info['behavior_or_interest'].apply(pd.Series)
+        plan_info = pd.concat([plan_info, temp], axis=1)
+        plan_info.drop('behavior_or_interest', axis=1, inplace=True)
+        plan_info.drop(0, axis=1, inplace=True)
 
-    temp = plan_info['intention'].apply(pd.Series)
-    plan_info = pd.concat([plan_info, temp], axis=1)
-    plan_info.drop('intention', axis=1, inplace=True)
-    plan_info = plan_info.rename(columns={'targeting_tags': 'intention_targeting_tags'})
-    plan_info.drop(0, axis=1, inplace=True)
+        if 'intention' in plan_info.columns:
+            temp = plan_info['intention'].apply(pd.Series)
+            plan_info = pd.concat([plan_info, temp], axis=1)
+            plan_info.drop('intention', axis=1, inplace=True)
+            plan_info = plan_info.rename(columns={'targeting_tags': 'intention_targeting_tags'})
+            plan_info.drop(0, axis=1, inplace=True)
+        else:
+            plan_info['intention_targeting_tags'] = np.nan
 
-    temp = plan_info['interest'].apply(pd.Series)
-    plan_info = pd.concat([plan_info, temp], axis=1)
-    plan_info.drop('interest', axis=1, inplace=True)
-    plan_info = plan_info.rename(
-        columns={'category_id_list': 'interest_category_id_list', 'keyword_list': 'interest_keyword_list',
-                 'targeting_tags': 'interest_targeting_tags'})
-    plan_info.drop(0, axis=1, inplace=True)
+        if 'interest' in plan_info.columns:
+            temp = plan_info['interest'].apply(pd.Series)
+            plan_info = pd.concat([plan_info, temp], axis=1)
+            plan_info.drop('interest', axis=1, inplace=True)
+            plan_info = plan_info.rename(
+                columns={'category_id_list': 'interest_category_id_list', 'keyword_list': 'interest_keyword_list',
+                         'targeting_tags': 'interest_targeting_tags'})
+            plan_info.drop(0, axis=1, inplace=True)
+        else:
+            plan_info['interest_category_id_list'] = np.nan
+            plan_info['interest_keyword_list'] = np.nan
+            plan_info['interest_targeting_tags'] = np.nan
 
-    temp = plan_info['behavior'].apply(pd.Series)
-    plan_info = pd.concat([plan_info, temp], axis=1)
-    plan_info.drop('behavior', axis=1, inplace=True)
-    temp = plan_info[0].apply(pd.Series)
-    plan_info = pd.concat([plan_info, temp], axis=1)
-    plan_info.drop(0, axis=1, inplace=True)
-    plan_info = plan_info.rename(columns={'category_id_list': 'behavior_category_id_list',
-                                          'intensity': 'behavior_intensity',
-                                          'keyword_list': 'behavior_keyword_list',
-                                          'scene': 'behavior_scene',
-                                          'targeting_tags': 'behavior_targeting_tags',
-                                          'time_window': 'behavior_time_window'})
+        if 'behavior' in plan_info.columns:
+            temp = plan_info['behavior'].apply(pd.Series)
+            plan_info = pd.concat([plan_info, temp], axis=1)
+            plan_info.drop('behavior', axis=1, inplace=True)
+            temp = plan_info[0].apply(pd.Series)
+            plan_info = pd.concat([plan_info, temp], axis=1)
+            plan_info.drop(0, axis=1, inplace=True)
+            plan_info = plan_info.rename(columns={'category_id_list': 'behavior_category_id_list',
+                                                  'intensity': 'behavior_intensity',
+                                                  'keyword_list': 'behavior_keyword_list',
+                                                  'scene': 'behavior_scene',
+                                                  'targeting_tags': 'behavior_targeting_tags',
+                                                  'time_window': 'behavior_time_window'})
+        else:
+            plan_info['behavior_category_id_list'] = np.nan
+            plan_info['behavior_intensity'] = np.nan
+            plan_info['behavior_keyword_list'] = np.nan
+            plan_info['behavior_scene'] = np.nan
+            plan_info['behavior_targeting_tags'] = np.nan
+            plan_info['behavior_time_window'] = np.nan
 
-    temp = plan_info['excluded_converted_audience'].apply(pd.Series)
-    plan_info = pd.concat([plan_info, temp], axis=1)
-    plan_info.drop('excluded_converted_audience', axis=1, inplace=True)
-    plan_info.drop(0, axis=1, inplace=True)
+    else:
+        plan_info['intention_targeting_tags'] = np.nan
+        plan_info['interest_category_id_list'] = np.nan
+        plan_info['interest_keyword_list'] = np.nan
+        plan_info['interest_targeting_tags'] = np.nan
+        plan_info['behavior_category_id_list'] = np.nan
+        plan_info['behavior_intensity'] = np.nan
+        plan_info['behavior_keyword_list'] = np.nan
+        plan_info['behavior_scene'] = np.nan
+        plan_info['behavior_targeting_tags'] = np.nan
+        plan_info['behavior_time_window'] = np.nan
 
-    temp = plan_info['geo_location'].apply(pd.Series)
-    plan_info = pd.concat([plan_info, temp], axis=1)
-    plan_info.drop('geo_location', axis=1, inplace=True)
-    plan_info.drop(0, axis=1, inplace=True)
+    if 'excluded_converted_audience' in plan_info.columns:
+        temp = plan_info['excluded_converted_audience'].apply(pd.Series)
+        plan_info = pd.concat([plan_info, temp], axis=1)
+        plan_info.drop('excluded_converted_audience', axis=1, inplace=True)
+        plan_info.drop(0, axis=1, inplace=True)
+    else:
+        plan_info['excluded_dimension'] = np.nan
+
+    if 'geo_location' in plan_info.columns:
+        temp = plan_info['geo_location'].apply(pd.Series)
+        plan_info = pd.concat([plan_info, temp], axis=1)
+        plan_info.drop('geo_location', axis=1, inplace=True)
+        plan_info.drop(0, axis=1, inplace=True)
+    else:
+        plan_info['location_types'] = np.nan
+        plan_info['regions'] = np.nan
 
     # 过滤一对多计划
     plan_info['ad_id_count'] = plan_info.groupby('plan_id')['ad_id'].transform('count')
@@ -242,11 +281,30 @@ def get_plan_json(plan_info):
             plan_info['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_ACTIVATE'))]
     # 删除auto_audience=True 的记录，并且删除auto_audience字段
     plan_info[plan_info['auto_audience'] == False]
+    for col in ['ad_account_id', 'game_id', 'channel_id', 'source_id', 'budget_mode',
+                'create_time', 'image_id', 'optimization_goal', 'time_series',
+                'bid_strategy', 'bid_amount', 'daily_budget', 'expand_enabled',
+                'expand_targeting', 'device_price', 'app_install_status',
+                'gender', 'game_consumption_level', 'age', 'custom_audience', 'excluded_custom_audience',
+                'network_type',
+                'deep_conversion_type', 'deep_conversion_behavior_spec',
+                'deep_conversion_worth_spec', 'intention_targeting_tags',
+                'interest_category_id_list', 'interest_keyword_list',
+                'behavior_category_id_list',
+                'behavior_intensity', 'behavior_keyword_list', 'behavior_scene',
+                'behavior_time_window',
+                'conversion_behavior_list', 'excluded_dimension', 'location_types',
+                'regions']:
+        if col in plan_info.columns:
+            pass
+        else:
+            plan_info[col] = np.nan
     plan_info = plan_info[['ad_account_id', 'game_id', 'channel_id', 'source_id', 'budget_mode',
                            'create_time', 'image_id', 'optimization_goal', 'time_series',
                            'bid_strategy', 'bid_amount', 'daily_budget', 'expand_enabled',
                            'expand_targeting', 'device_price', 'app_install_status',
-                           'gender', 'game_consumption_level', 'age', 'network_type',
+                           'gender', 'game_consumption_level', 'age', 'custom_audience', 'excluded_custom_audience',
+                           'network_type',
                            'deep_conversion_type', 'deep_conversion_behavior_spec',
                            'deep_conversion_worth_spec', 'intention_targeting_tags',
                            'interest_category_id_list', 'interest_keyword_list',
@@ -265,8 +323,8 @@ def get_creative():
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
 
-    conn = pymysql.connect(host='db-slave-modeltoufang-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8', db='db_ptom')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_TOUFANG_HOST'], port=int(dicParam['DB_SLAVE_TOUFANG_PORT']), user=dicParam['DB_SLAVE_TOUFANG_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_TOUFANG_PASSWORD'], db=dicParam['DB_SLAVE_TOUFANG_DATABASE'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         /*手动查询*/ 
@@ -295,11 +353,11 @@ def get_creative():
 
 # 获取score_image (分数大于550的image_id)
 def get_score_image():
-    conn = connect(host='192.168.0.97', port=10000, auth_mechanism='PLAIN', user='hadoop',
-                   password='Ycjh8FxiaoMtShZRd3-97%3hCEL0CK4ns1w', database='default')
+    conn = connect(host=dicParam['HIVE_HOST'], port=int(dicParam['HIVE_PORT']), auth_mechanism=dicParam['HIVE_AUTH_MECHANISM'], user=dicParam['HIVE_USERNAME'],
+                   password=dicParam['HIVE_PASSWORD'], database=dicParam['HIVE_DATABASE'])
     cursor = conn.cursor()
     sql_engine = 'set hive.execution.engine=tez'
-    sql = 'select image_id,label_ids from dws.dws_image_score_d where media_id=16 and score>=520 and dt=CURRENT_DATE group by image_id,label_ids'
+    sql = 'select image_id,label_ids from dws.dws_image_score_d where media_id=16 and score>=500 and dt=CURRENT_DATE group by image_id,label_ids'
     cursor.execute(sql_engine)
     cursor.execute(sql)
     result = as_pandas(cursor)
@@ -314,355 +372,166 @@ def get_score_image():
     return result['image_id'].values
 
 
-# 获取近期计划的运营数据
-def get_now_plan_roi():
+def get_amount_info():
     game_id = get_game_id()
     game_id = list(map(lambda x: x['game_id'], game_id))
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
-
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
-        SELECT
-            a.ad_account_id,
-            b.channel_id,
-            b.source_id,
-            b.tdate,
-            b.amount,
-            b.new_role_money,
-            b.new_role_money / b.amount AS roi,
-            b.pay_role_user_num / b.create_role_num AS pay_rate 
-        FROM
-            db_data_ptom.ptom_plan a 
-        left join
-            db_stdata.st_lauch_report b
-        on a.chl_user_id=b.channel_id and a.source_id=b.source_id
-        WHERE
-            b.tdate >= date( NOW() - INTERVAL 168 HOUR ) 
-            AND b.tdate_type = 'day' 
-            AND b.media_id = 16 
-            AND b.game_id IN ({}) 
-            AND b.amount >= 200 
-            AND b.pay_role_user_num >= 1 
-            AND b.new_role_money >= 48
-            AND (b.new_role_money / b.amount)>=0.015
+    /*手动查询*/
+            SELECT
+                tdate,
+                channel_id,
+                source_id,
+                game_id,
+                media_id,
+                platform,
+                amount 
+            FROM
+                db_stdata.st_lauch_report 
+            WHERE
+                game_id IN ({}) 
+                AND tdate_type = 'day' 
+                AND tdate >= date( NOW() - INTERVAL 7 DAY )
+                AND tdate <= date( NOW() - INTERVAL 1 DAY )
+                AND media_id = 16
+                AND platform = 1
     '''
     finalSql = sql.format(game_id)
-    cur.execute(finalSql)
     result_df = pd.read_sql(finalSql, conn)
     cur.close()
     conn.close()
-    result_df['tdate'] = pd.to_datetime(result_df['tdate'])
-    result_df = result_df.sort_values('tdate')
-    result_df = result_df.drop_duplicates(['channel_id', 'source_id'], keep='first')
+
     return result_df
 
 
-def get_roi(x, y, z):
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
-    cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
+def get_data_7():
+    game_id = get_game_id()
+    game_id = list(map(lambda x: x['game_id'], game_id))
+    game_id = [str(i) for i in game_id]
+    game_id = ','.join(game_id)
+    conn = connect(host=dicParam['HIVE_HOST'], port=int(dicParam['HIVE_PORT']), auth_mechanism=dicParam['HIVE_AUTH_MECHANISM'], user=dicParam['HIVE_USERNAME'],
+                   password=dicParam['HIVE_PASSWORD'], database=dicParam['HIVE_DATABASE'])
+    cursor = conn.cursor()
     sql = '''
-       SELECT
-            aa.launch_op_id AS 'launch_op_id',
-            aa.media_id AS 'media_id',
-            sum( aa.amount ) AS 'amount',
-            IFNULL( sum( aa.create_role_num ), 0 ) AS 'create_role_num',
-            IFNULL( sum( bb.pay_role_user_num ), 0 ) AS 'pay_num',
-            IFNULL( sum( bb.new_role_money ), 0 ) AS 'pay_sum',
-            (
-         CASE
-                    WHEN ifnull( sum( aa.amount ), 0 )= 0 THEN
-                            0 ELSE IFNULL( sum( bb.new_role_money ), 0 ) / ifnull( sum( aa.amount ), 0 )
-                                                    END 
-                                                    ) AS 'create_role_roi' 
-        FROM
-            (
-            SELECT
-                a.game_id,
-                a.channel_id,
-                a.source_id,
-                b.launch_op_id,
-                a.media_id,
-                IFNULL( sum( a.amount ), 0 ) AS amount,
-                IFNULL( sum( create_role_num ), 0 ) AS create_role_num
-            FROM
-                db_stdata.st_lauch_report a
-                INNER JOIN db_data_ptom.ptom_plan b ON a.game_id = b.game_id 
-                AND a.source_id = b.source_id 
-                AND a.channel_id = b.chl_user_id
-            WHERE
-                a.tdate_type = 'day' 
-                AND a.tdate <= DATE_SUB( date( NOW()), INTERVAL {} DAY )  AND a.tdate >= DATE_SUB( date( NOW()), INTERVAL {} DAY ) 
-                AND a.media_id = 16
-                AND a.game_id IN ( SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1056 AND dev_game_id IS NOT NULL ) 
-                AND b.launch_op_id=13268
-            GROUP BY
-                a.game_id,
-                a.channel_id,
-                a.source_id  
-            ) aa
-            LEFT JOIN (
-                SELECT
-                    c.game_id,
-                    c.channel_id,
-                    c.source_id,
-                    sum( c.create_role_money ) new_role_money,
-                    IFNULL( sum( c.pay_role_user_num ), 0 ) AS pay_role_user_num 
-                FROM
-                    db_stdata.st_game_days c 
-                WHERE
-                    c.report_days = {} 
-                    AND c.tdate = date( NOW() - INTERVAL 24 HOUR ) 
-                    AND c.tdate_type = 'day' 
-                    AND c.query_type = 13 
-                GROUP BY
-                    c.game_id,
-                    c.channel_id,
-                    c.source_id 
-                HAVING
-                ( new_role_money > 0 OR pay_role_user_num > 0 )
-            ) bb ON aa.game_id = bb.game_id 
-            AND aa.channel_id = bb.channel_id 
-            AND aa.source_id = bb.source_id 
-        GROUP BY
-            aa.launch_op_id,
-            aa.media_id
-    '''
-    finalSql = sql.format(x, y, z)
-    cur.execute(finalSql)
-    result_df = pd.read_sql(finalSql, conn)
-    cur.close()
-    conn.close()
-
-    return result_df['create_role_roi'].values[0]
-
-
-def get_roi_current():
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
-    cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
-    sql = '''
-       /*手动查询*/ 
         SELECT
-            aa.launch_op_id AS 'launch_op_id',
-            aa.media_id AS 'media_id',
-            sum( aa.amount ) AS 'amount',
-            IFNULL( sum( aa.create_role_num ), 0 ) AS 'create_role_num',
-            IFNULL( sum( aa.pay_role_user_num ), 0 ) AS 'pay_role_user_num',
-            IFNULL( sum( aa.new_role_money ), 0 ) AS 'pay_sum',
-            (
-         CASE
-                    WHEN ifnull( sum( aa.pay_role_user_num ), 0 )= 0 THEN
-                            IFNULL( sum( aa.amount ), 0 ) ELSE IFNULL( sum( aa.amount ), 0 ) / ifnull( sum( aa.pay_role_user_num ), 0 )
-                                                    END 
-                                                    ) AS 'create_role_pay_cost', 
-            (
-         CASE
-                    WHEN ifnull( sum( aa.amount ), 0 )= 0 THEN
-                            0 ELSE IFNULL( sum( aa.new_role_money ), 0 ) / ifnull( sum( aa.amount ), 0 )
-                                                    END 
-                                                    ) AS 'create_role_roi' 
+            user_id,
+            game_id,
+            channel_id,
+            source_id,
+            role_id,
+            platform,
+            media_id,
+            pay_num,
+            pay_sum,
+            create_role_time,
+            created_role_day,
+            pay_sum AS pay_7_pred,
+            dt 
         FROM
-            (
-            SELECT
-                a.game_id,
-                a.channel_id,
-                a.source_id,
-                b.launch_op_id,
-                a.media_id,
-                IFNULL( sum( a.amount ), 0 ) AS amount,
-                IFNULL( sum( create_role_num ), 0 ) AS create_role_num,
-                IFNULL( sum( a.new_role_money ), 0 ) AS new_role_money,
-                IFNULL( sum( a.pay_role_user_num ), 0 ) AS pay_role_user_num
-            FROM
-                db_stdata.st_lauch_report a
-                INNER JOIN db_data_ptom.ptom_plan b ON a.game_id = b.game_id 
-                AND a.source_id = b.source_id 
-                AND a.channel_id = b.chl_user_id
-            WHERE
-                a.tdate_type = 'day' 
-                AND a.tdate = date( NOW())
-                AND a.media_id = 16
-                AND a.game_id IN ( SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1056 AND dev_game_id IS NOT NULL ) 
-                AND b.launch_op_id=13268
-            GROUP BY
-                a.game_id,
-                a.channel_id,
-                a.source_id  
-            ) aa
-        GROUP BY
-            aa.launch_op_id,
-            aa.media_id
+            tmp_data.tmp_roles_portrait_info_train2 
+        WHERE
+            dt = CURRENT_DATE 
+            AND created_role_day = 7
+            AND media_id = 16
+            AND platform = 1
+            and game_id IN ({})
     '''
-    cur.execute(sql)
-    result_df = pd.read_sql(sql, conn)
-    cur.close()
+    finalSql = sql.format(game_id)
+    cursor.execute(finalSql)
+    result = as_pandas(cursor)
+
+    # 关闭链接
+    cursor.close()
     conn.close()
 
-    return result_df['create_role_roi'].values[0], result_df['create_role_pay_cost'].values[0]
+    return result
 
 
-def get_plan_num_1(n=40):
-    roi_3 = get_roi(1, 3, 3)
-    roi_1 = get_roi(1, 1, 1)
-    if roi_1 < 0.01:
-        a = -(n * 0.4)
-    elif roi_1 >= 0.01 and roi_1 < 0.015:
-        a = -(n * 0.2)
-    elif roi_1 >= 0.015 and roi_1 < 0.02:
-        a = 0
-    elif roi_1 >= 0.02 and roi_1 < 0.03:
-        a = n * 0.2
-    else:
-        a = n * 0.3
+def get_data_1_6():
+    game_id = get_game_id()
+    game_id = list(map(lambda x: x['game_id'], game_id))
+    game_id = [str(i) for i in game_id]
+    game_id = ','.join(game_id)
+    conn = connect(host=dicParam['HIVE_HOST'], port=int(dicParam['HIVE_PORT']), auth_mechanism=dicParam['HIVE_AUTH_MECHANISM'], user=dicParam['HIVE_USERNAME'],
+                   password=dicParam['HIVE_PASSWORD'], database=dicParam['HIVE_DATABASE'])
+    cursor = conn.cursor()
+    sql = '''
+            SELECT
+                user_id,
+                game_id,
+                channel_id,
+                source_id,
+                role_id,
+                platform,
+                media_id,
+                pay_num,
+                pay_sum,
+                create_role_time,
+                created_role_day,
+                pay_7_pred,
+                dt 
+            FROM
+                tmp_data.tmp_roles_portrait_info_predict 
+            WHERE
+                dt = CURRENT_DATE
+                AND media_id = 16
+                AND platform = 1
+                and game_id IN ({})
 
-    if roi_3 < 0.03:
-        b = -(n * 0.4)
-    elif roi_3 >= 0.03 and roi_3 < 0.045:
-        b = 0
-    elif roi_3 >= 0.045 and roi_3 < 0.06:
-        b = (n * 0.2)
-    else:
-        b = (n * 0.3)
-    return int(n + a + b)
+    '''
+    finalSql = sql.format(game_id)
+    cursor.execute(finalSql)
+    result = as_pandas(cursor)
 
+    # 关闭链接
+    cursor.close()
+    conn.close()
 
-def get_plan_num_2(n=25):
-    roi_current, create_role_pay_cost = get_roi_current()
-    if create_role_pay_cost > 15000:
-        a = 0
-    elif create_role_pay_cost > 12000 and create_role_pay_cost <= 15000:
-        if roi_current < 0.01:
-            a = 0
-        elif roi_current >= 0.01 and roi_current < 0.015:
-            a = n * 0.2
-        elif roi_current >= 0.015 and roi_current < 0.02:
-            a = n * 0.3
-        elif roi_current >= 0.02 and roi_current < 0.03:
-            a = n * 0.4
-        else:
-            a = n * 0.5
-    else:
-        if roi_current < 0.01:
-            a = 0
-        elif roi_current >= 0.01 and roi_current < 0.015:
-            a = n * 0.3
-        elif roi_current >= 0.015 and roi_current < 0.02:
-            a = n * 0.4
-        elif roi_current >= 0.02 and roi_current < 0.03:
-            a = n * 0.5
-        else:
-            a = n * 0.6
-    return int(a)
+    return result
 
 
-def get_plan_num_3(n=15):
-    roi_current, create_role_pay_cost = get_roi_current()
-    if create_role_pay_cost > 15000:
-        a = 0
-    elif create_role_pay_cost > 12000 and create_role_pay_cost <= 15000:
-        if roi_current < 0.015:
-            a = 0
-        elif roi_current >= 0.015 and roi_current < 0.02:
-            a = n * 0.2
-        elif roi_current >= 0.02and roi_current < 0.03:
-            a = n * 0.3
-        elif roi_current >= 0.03 and roi_current < 0.04:
-            a = n * 0.4
-        else:
-            a = n * 0.5
-    else:
-        if roi_current < 0.015:
-            a = 0
-        elif roi_current >= 0.015 and roi_current < 0.02:
-            a = n * 0.3
-        elif roi_current >= 0.02 and roi_current < 0.03:
-            a = n * 0.4
-        elif roi_current >= 0.03 and roi_current < 0.04:
-            a = n * 0.5
-        else:
-            a = n * 0.6
-    return int(a)
+# 获取近期计划的运营数据
+def get_now_plan_roi():
+    # 获取消耗数据
+    amount_info = get_amount_info()
+    # 获取回款预测数据
+    df_roi_1 = get_data_7()
+    df_roi_2 = get_data_1_6()
+    df_roi = df_roi_1.append(df_roi_2)
+    # 求计划付费成本，回款率，付费人数
+    df_roi['create_role_time'] = pd.to_datetime(df_roi['create_role_time']).dt.date
+    df_roi['pay_num'] = df_roi['pay_num'].replace(0, np.nan)
+    source_df_1 = pd.DataFrame({'7_pay_sum': df_roi.groupby(['channel_id', 'source_id'])['pay_7_pred'].sum()}).reset_index()
+    source_df_2 = pd.DataFrame({'pay_num': df_roi.groupby(['channel_id', 'source_id'])['pay_num'].count()}).reset_index()
+    source_df_3 = pd.DataFrame({'amount': amount_info.groupby(['channel_id', 'source_id'])['amount'].sum()}).reset_index()
+    source_df_3 = source_df_3[source_df_3['amount'] > 0]
+    source_df = pd.merge(source_df_1, source_df_2, on=['channel_id','source_id'], how='outer')
+    source_df = pd.merge(source_df, source_df_3, on=['channel_id','source_id'], how='outer')
+    source_df = source_df.fillna(0)
+    source_df = source_df[source_df['amount'] > 0]
+    source_df['roi'] = source_df['7_pay_sum'] / source_df['amount']
+    source_df['pay_cost'] = source_df['amount'] / source_df['pay_num']
+    # 选择相关指标达标的计划
+    result = source_df[(source_df['pay_num'] >= 1) & (source_df['pay_cost'] <= 8000) & (source_df['roi'] >= 0.05) & (source_df['amount'] >= 200)]
+    return result
 
 
-def get_set_info():
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+def get_manager_id():
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
-       /*手动查询*/ 
-            SELECT
-            aa.advert_posi_id AS 'advert_posi_id',
-            aa.media_id AS 'media_id',
-            sum( aa.amount ) AS 'amount',
-            IFNULL( sum( aa.create_role_num ), 0 ) AS 'create_role_num',
-            IFNULL( sum( bb.pay_role_user_num ), 0 ) AS 'pay_num',
-            IFNULL( sum( bb.new_role_money ), 0 ) AS 'pay_sum',
-            (
-            CASE
-
-                    WHEN ifnull( sum( aa.amount ), 0 )= 0 THEN
-                    0 ELSE IFNULL( sum( bb.new_role_money ), 0 ) / ifnull( sum( aa.amount ), 0 ) 
-                END 
-                ) AS 'create_role_roi' 
-            FROM
-                (
-                SELECT
-                    a.game_id,
-                    a.channel_id,
-                    a.source_id,
-                    b.advert_posi_id,
-                    a.media_id,
-                    IFNULL( sum( a.amount ), 0 ) AS amount,
-                    IFNULL( sum( create_role_num ), 0 ) AS create_role_num 
-                FROM
-                    db_stdata.st_lauch_report a
-                    INNER JOIN db_data_ptom.ptom_plan b ON a.game_id = b.game_id 
-                    AND a.source_id = b.source_id 
-                    AND a.channel_id = b.chl_user_id 
-                WHERE
-                    a.tdate_type = 'day' 
-                    AND a.tdate <= DATE_SUB( date( NOW()), INTERVAL 1 DAY ) AND a.tdate >= DATE_SUB( date( NOW()), INTERVAL 15 DAY ) 
-                    AND a.media_id = 16 
-                    AND a.game_id IN ( SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1056 AND dev_game_id IS NOT NULL ) 
-                GROUP BY
-                    a.game_id,
-                    a.channel_id,
-                    a.source_id 
-                ) aa
-                LEFT JOIN (
-                SELECT
-                    c.game_id,
-                    c.channel_id,
-                    c.source_id,
-                    sum( c.create_role_money ) new_role_money,
-                    IFNULL( sum( c.pay_role_user_num ), 0 ) AS pay_role_user_num 
-                FROM
-                    db_stdata.st_game_days c 
-                WHERE
-                    c.report_days = 15 
-                    AND c.tdate = date( NOW() - INTERVAL 24 HOUR ) 
-                    AND c.tdate_type = 'day' 
-                    AND c.query_type = 13 
-                GROUP BY
-                    c.game_id,
-                    c.channel_id,
-                    c.source_id 
-                HAVING
-                    ( new_role_money > 0 OR pay_role_user_num > 0 ) 
-                ) bb ON aa.game_id = bb.game_id 
-                AND aa.channel_id = bb.channel_id 
-                AND aa.source_id = bb.source_id 
-            GROUP BY
-            aa.advert_posi_id
-            HAVING
-            sum( aa.amount )>50000
-            ORDER BY create_role_roi DESC
+    /*手动查询*/
+        SELECT
+            channel_id,
+            manager_id 
+        FROM
+            db_data.dim_channel_info
     '''
-    cur.execute(sql)
     result_df = pd.read_sql(sql, conn)
     cur.close()
     conn.close()
@@ -674,27 +543,14 @@ def create_plan(df, score_image):
     # 选ad_account_id、image_id每个账号+素材8条
     game_id = 1001379
     # df = df[df['game_id'] == game_id]
-    df = df[df['game_id'].isin([1001379, 1001757])]
-    # ad_account_id_group = np.array([7981, 7984, 8035, 8036, 8038, 8039, 8079, 8077, 8074, 8073])
-    # ad_account_id_group = np.array([7982, 8037, 8082, 8080, 8078, 8076, 8075, 7981, 7984, 8035, 8036,
-    #                                 8038, 8039, 8077, 8073])
-    # ad_account_id_group = np.array([
-    #     7982, 8037, 8082, 8080, 8078, 8076, 8075, 7981, 7984, 8035, 8036, 8038, 8039, 8077, 8073,
-    #     8814, 8815, 8816, 8817, 8818, 8819, 8820, 8821, 8822, 8823, 8824, 8825, 8826, 8827, 8828,
-    #     8829, 8830, 8831, 8832, 8833, 8834, 8835, 8836, 8837, 8838, 8839, 8840, 8841, 8842, 8843,
-    #     8844, 8845, 8846, 8847, 8848, 8854, 8855, 8856, 8857, 8858, 8859, 8860, 8743, 8742, 8741,
-    #     8740, 8739, 8738, 8737, 8736, 8735, 8734, 8733, 8732, 8731, 8730, 8729])
-    ad_account_id_group = np.array([
-        7982, 8037, 8082, 8080, 8076, 8075, 7981, 7984, 8035, 8036, 8038, 8039, 8077, 8073,
-        8815, 8816, 8817, 8819, 8820, 8821, 8822, 8823, 8827,
-        8829, 8830, 8831, 8832, 8833, 8835, 8837, 8838, 8839, 8840, 8841, 8842, 8843,
-        8844, 8845, 8847, 8854, 8855, 8856, 8857, 8858, 8743, 8742, 8741,
-        8737, 8736, 8734, 8733, 8731, 8729])
+    #     df = df[df['game_id'].isin([1001379, 1001757, 1001841])]
 
+    ad_account_id_group = np.array([8082, 8854, 8817, 8843, 8077, 8839])    ## TODO
+    # ad_account_id_group = np.array([8035, 8036, 8037, 8038, 8039])
     image_id_group = np.intersect1d(df['image_id'].unique(), score_image)
     image_id_group = list(filter(lambda x: x >= 32861, image_id_group))
 
-    # print(image_id_group)
+    print(image_id_group)
     df = df[df['image_id'].isin(image_id_group)]
     #     df = df[df['site_set'].notna()]
 
@@ -719,18 +575,22 @@ def create_plan(df, score_image):
     plan = pd.concat([plan, sample_df], axis=1)
 
     # 选定向targeting
-    sample_df = df[['device_price', 'app_install_status', 'gender', 'game_consumption_level', 'age', 'network_type',
-                    'conversion_behavior_list', 'excluded_dimension', 'location_types', 'regions',
-                    'intention_targeting_tags', 'interest_category_id_list', 'interest_keyword_list',
-                    'behavior_category_id_list', 'behavior_intensity',
-                    'behavior_keyword_list', 'behavior_scene', 'behavior_time_window']]
+    sample_df = df[
+        ['manager_id', 'device_price', 'app_install_status', 'gender', 'game_consumption_level', 'age',
+         'custom_audience', 'excluded_custom_audience', 'network_type',
+         'conversion_behavior_list', 'excluded_dimension', 'location_types', 'regions',
+         'intention_targeting_tags', 'interest_category_id_list', 'interest_keyword_list',
+         'behavior_category_id_list', 'behavior_intensity',
+         'behavior_keyword_list', 'behavior_scene', 'behavior_time_window']]
     sample_df = sample_df.sample(n=plan.shape[0], replace=True).reset_index(drop=True)
     plan = pd.concat([plan, sample_df], axis=1)
+    plan = plan.rename(columns={'manager_id': 'manager_id_1'})
 
     # 选创意\出价方式、出价
     create_df = df[
-        ['image_id', 'site_set', 'deep_link_url', 'adcreative_template_id', 'page_spec', 'page_type', 'link_page_spec',
-         'link_name_type', 'link_page_type', 'promoted_object_id', 'profile_id', 'promoted_object_type',
+        ['manager_id', 'image_id', 'site_set', 'deep_link_url', 'adcreative_template_id', 'page_spec', 'page_type',
+         'link_page_spec', 'link_name_type', 'link_page_type', 'promoted_object_id', 'profile_id',
+         'promoted_object_type',
          'automatic_site_enabled', 'label', 'adcreative_elements',
          'optimization_goal', 'bid_strategy', 'bid_amount', 'deep_conversion_type', 'deep_conversion_behavior_spec',
          'deep_conversion_worth_spec']]
@@ -751,18 +611,15 @@ def create_plan(df, score_image):
         plan_ = plan_.append(plan_1)
 
     plan = plan_
+    plan = plan.rename(columns={'manager_id': 'manager_id_2'})
     plan['site_set'] = plan['site_set'].apply(ast.literal_eval)
 
-    # 选time_series
-    cols = ['time_series']
-    for col in cols:
-        count_df = pd.DataFrame(data=df[col].value_counts()).reset_index()
-        count_df.columns = ['col', 'counts']
-        count_df['pct'] = count_df['counts'] / count_df['counts'].sum()
-        plan[col] = plan.apply(lambda x: np.random.choice(count_df['col'].values, 1, p=count_df['pct'].values)[0],
-                               axis=1)
-
     plan['promoted_object_id'] = '1111059412'
+
+    # 计划归因channel_id
+    plan['attribute'] = plan.apply(lambda x: [x.manager_id_1, x.manager_id_2], axis=1)
+    plan.drop(['manager_id_1', 'manager_id_2'], axis=1, inplace=True)
+
     plan['create_time'] = pd.to_datetime(pd.datetime.now())
     plan['create_date'] = pd.to_datetime(pd.datetime.now().date())
     plan = plan.reset_index(drop=True)
@@ -803,6 +660,7 @@ def get_train_df():
                                    'promoted_object_id', 'promoted_object_type', 'automatic_site_enabled',
                                    'link_name_type', 'link_page_type', 'profile_id', 'link_page_spec',
                                    'adcreative_elements']]
+
     plan_info = pd.merge(plan_info.drop(['image_id'], axis=1), creative_info, on=['channel_id', 'source_id'],
                          how='inner')
     plan_info.dropna(subset=['image_id'], inplace=True)
@@ -816,10 +674,18 @@ def get_train_df():
     image_info = image_info[image_info['image_id'].notna()]
     image_info['image_id'] = image_info['image_id'].astype(int)
     df_create = pd.merge(plan_info_current, image_info, on=['channel_id', 'source_id', 'image_id'], how='left')
-    df_create = pd.merge(df_create, now_plan_roi.drop(['ad_account_id'], axis=1), on=['channel_id', 'source_id'],
-                         how='inner')
-    df_create = df_create[df_create['site_set'].notna()]
+    df_create = pd.merge(df_create, now_plan_roi, on=['channel_id', 'source_id'], how='inner')
+    df_create['channel_id'] = df_create['channel_id'].map(str)
 
+    manager_id = get_manager_id()
+    manager_id['channel_id'] = manager_id['channel_id'].map(str)
+    # manager_id['manager_id'] = manager_id['manager_id'].map(str)
+    df_create = pd.merge(df_create, manager_id, on='channel_id', how='left')
+    df_create.to_csv('./df_create.csv', index=0)
+    # 只跑ROI和付费次数 TODO
+    # # df_create = df_create[(df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_ACTIVATE') | (df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_PURCHASE')]
+    # df_create = df_create[df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_ACTIVATE']
+    df_create['site_set'] = df_create['site_set'].fillna("[]")
     plan_create = create_plan(df_create, score_image)
     image_info.dropna(subset=['image_id'], inplace=True)
     image_info['image_id'] = image_info['image_id'].astype(int)
@@ -831,32 +697,28 @@ def get_train_df():
     df = pd.merge(df, launch_report, on=['channel_id', 'source_id'], how='left')
     df.drop(df[df['tdate'].isna()].index, inplace=True)
     df = df[df['amount'] >= 500]
-
     df['plan_label'] = df.apply(lambda x: 1 if x.new_role_money / x.amount >= 0.015 else 0, axis=1)
     df['ad_account_id'] = df['ad_account_id'].astype('int')
     df['image_id'] = df['image_id'].astype('int')
     df.rename(columns={'tdate': 'create_date'}, inplace=True)
     df['create_date'] = pd.to_datetime(df['create_date'])
     df['create_time'] = pd.to_datetime(df['create_time'])
-
     df.drop(['channel_id', 'source_id', 'budget_mode', 'bid_amount', 'daily_budget', 'deep_conversion_behavior_spec',
-             'deep_conversion_worth_spec',
+             'deep_conversion_worth_spec', 'custom_audience', 'excluded_custom_audience',
              'deep_link_url', 'page_spec', 'promoted_object_id', 'promoted_object_type', 'automatic_site_enabled',
              'link_page_type',
              'profile_id', 'link_page_spec', 'adcreative_elements', 'amount', 'roi', 'pay_rate',
-             'new_role_money'], axis=1, inplace=True)
-
+             'new_role_money', 'time_series', ], axis=1, inplace=True)
     plan_create_train = plan_create.drop(['adcreative_elements', 'automatic_site_enabled', 'bid_amount',
                                           'budget_mode', 'daily_budget', 'deep_conversion_behavior_spec',
-                                          'deep_conversion_worth_spec', 'deep_link_url', 'link_page_spec',
+                                          'deep_conversion_worth_spec', 'custom_audience', 'excluded_custom_audience',
+                                          'deep_link_url', 'link_page_spec',
                                           'link_page_type', 'page_spec', 'profile_id', 'promoted_object_id',
-                                          'promoted_object_type'], axis=1)
+                                          'promoted_object_type', 'attribute'], axis=1)
     df['train_label'] = 1
     plan_create_train['train_label'] = 0
     plan_create_train['plan_label'] = -1
-
     df = df.append(plan_create_train)
-
     df['create_date'] = pd.to_datetime(df['create_date'])
     df['ad_im_sort_id'] = df.groupby(['ad_account_id', 'image_id'])['create_time'].rank()
     df['ad_game_sort_id'] = df.groupby(['ad_account_id', 'game_id'])['create_time'].rank()
@@ -864,7 +726,7 @@ def get_train_df():
 
     df = get_mutil_feature(df)
 
-    cat_cols = ['ad_account_id', 'game_id', 'optimization_goal', 'time_series', 'bid_strategy', 'expand_enabled',
+    cat_cols = ['ad_account_id', 'game_id', 'optimization_goal', 'bid_strategy', 'expand_enabled',
                 'expand_targeting',
                 'device_price', 'app_install_status', 'gender', 'game_consumption_level', 'age', 'network_type',
                 'deep_conversion_type',
@@ -890,7 +752,7 @@ def get_ad_create(plan_result):
     for i in range(plan_result.shape[0]):
         ad_info.append(json.loads(plan_result.iloc[i].to_json()))
     open_api_url_prefix = "https://ptom.caohua.com/"
-    # open_api_url_prefix = "http://192.168.0.60:8085/"
+    # open_api_url_prefix = "https://ptom-pre.caohua.com/"   ## 预发布环境
     uri = "model/generationPlanBatchTask"
     url = open_api_url_prefix + uri
     params = {
@@ -943,7 +805,7 @@ def main_model():
     y_predict = model.predict(features_test)
 
     plan_create['prob'] = y_predict
-    threshold = pd.Series(y_predict).sort_values(ascending=False).reset_index(drop=True)[int(y_predict.shape[0] * 0.3)]
+    threshold = pd.Series(y_predict).sort_values(ascending=False).reset_index(drop=True)[int(y_predict.shape[0] * 0.9)]
 
     plan_result = plan_create[plan_create['prob'] >= threshold]
     plan_result['rank_ad_im'] = plan_result.groupby(['ad_account_id', 'image_id'])['prob'].rank(ascending=False,
@@ -956,7 +818,7 @@ def main_model():
 
     ad_num = plan_result['ad_account_id'].value_counts()
     for ad in np.setdiff1d(plan_create['ad_account_id'].values, ad_num[ad_num > 2].index):
-        add_plan = plan_result_pr[plan_result_pr['ad_account_id'] == ad].sort_values('prob', ascending=False)[0:2]
+        add_plan = plan_result_pr[plan_result_pr['ad_account_id'] == ad].sort_values('prob', ascending=False)[0:3]
         plan_result = plan_result.append(add_plan)
 
     ad_num = plan_result['image_id'].value_counts()
@@ -966,73 +828,22 @@ def main_model():
 
     plan_result['weight'] = plan_result.groupby(['ad_account_id'])['game_id'].transform('count')
     plan_result['site_set'] = plan_result['site_set'].map(str)
-    # # 版位过滤
-    # set_info = get_set_info()
-    # set_dict = {
-    #     '1263,1264,1265,1266': "['SITE_SET_QQ_MUSIC_GAME', 'SITE_SET_KANDIAN', 'SITE_SET_TENCENT_NEWS', 'SITE_SET_TENCENT_VIDEO']",
-    #     '1268': "['SITE_SET_WECHAT']",
-    #     '1269': "['SITE_SET_MOMENTS']",
-    #     '1263,1265,1266,1267': "['SITE_SET_QQ_MUSIC_GAME', 'SITE_SET_KANDIAN', 'SITE_SET_TENCENT_VIDEO', 'SITE_SET_MOBILE_UNION']",
-    #     '1263,1264,1265,1266,1267': "['SITE_SET_QQ_MUSIC_GAME', 'SITE_SET_KANDIAN', 'SITE_SET_TENCENT_NEWS', 'SITE_SET_TENCENT_VIDEO', 'SITE_SET_MOBILE_UNION']",
-    #     '1263,1265,1266': "['SITE_SET_QQ_MUSIC_GAME', 'SITE_SET_KANDIAN', 'SITE_SET_TENCENT_VIDEO']",
-    #     '1262': "['AUTOMATIC_SITE_ENABLED']",
-    #     '1265,1266,1267': "['SITE_SET_QQ_MUSIC_GAME', 'SITE_SET_KANDIAN', 'SITE_SET_MOBILE_UNION']"
-    # }
-    # set_info['advert_posi_id'] = set_info['advert_posi_id'].replace(set_dict)
-    # roi_avg = set_info['pay_sum'].sum() / set_info['amount'].sum()
-    # # 选择回款率高于平均数0.9倍的版位
-    # set_info = set_info[set_info['create_role_roi'] >= roi_avg * 0.9][['advert_posi_id', 'create_role_roi']]
-    # set_info = set_info.rename(columns={'advert_posi_id': 'site_set'})
-    #
-    # plan_result['site_set'] = plan_result['site_set'].map(str)
-    # plan_result = pd.merge(plan_result, set_info, on='site_set', how='left')
-    # plan_result = plan_result[plan_result['create_role_roi'].notna()]
-    # print(plan_result['site_set'].value_counts())
-    # 建计划数量plan_num
-    d_time_1 = datetime.datetime.strptime(str(datetime.datetime.now().date()) + '07:00', '%Y-%m-%d%H:%M')
-    d_time_2 = datetime.datetime.strptime(str(datetime.datetime.now().date()) + '13:00', '%Y-%m-%d%H:%M')
-    d_time_3 = datetime.datetime.strptime(str(datetime.datetime.now().date()) + '17:00', '%Y-%m-%d%H:%M')
-    n_time = datetime.datetime.now()
-    if n_time > d_time_1 and n_time < d_time_2:
-        plan_num = get_plan_num_1()
-    elif n_time > d_time_2 and n_time < d_time_3:
-        plan_num = get_plan_num_2()
-    elif n_time > d_time_3:
-        plan_num = get_plan_num_3()
-    # print(plan_num)
-    plan_num = 0
-    # 朋友圈200,非朋友圈20
-    plan_result_1 = plan_result[plan_result['site_set'] == "['SITE_SET_MOMENTS']"]
-    if plan_result_1.shape[0] > 90:
-        plan_result_1 = plan_result_1.sample(90, weights=plan_result_1['weight'])
-    plan_result_2 = plan_result[plan_result['site_set'] != "['SITE_SET_MOMENTS']"]
-    if plan_result_1.shape[0] != 0:
-        if plan_result_2.shape[0] > plan_num:
-            plan_result_2 = plan_result_2.sample(plan_num, weights=plan_result_2['weight'])
-    else:
-        if plan_result_2.shape[0] > plan_num * 3:
-            plan_result_2 = plan_result_2.sample(plan_num * 3, weights=plan_result_2['weight'])
 
-    plan_result = plan_result_1.append(plan_result_2)
+    # 朋友圈权重为12， 其它为1
+    plan_result['weight'] = plan_result['site_set'].apply(lambda x: 12 if x == "['SITE_SET_MOMENTS']" else 1)
+    ad_account_id_group = np.array([8082, 8854, 8817, 8843, 8077, 8839])   ## TODO
+    # ad_account_id_group = np.array([8035, 8036, 8037, 8038, 8039])
+    plan_num = 5
+    plan_result = plan_result.reset_index(drop=True)
+    plan_result_n = pd.DataFrame()
+    for account_id in ad_account_id_group:
+        plan_result_ = plan_result[plan_result['ad_account_id'] == account_id]
+        plan_result_ = plan_result_.sample(plan_num, weights=plan_result['weight'])
+        plan_result_n = plan_result_n.append(plan_result_)
+    plan_result = plan_result_n
 
-    # if plan_result.shape[0] > plan_num:
-    #     plan_result = plan_result.sample(plan_num, weights=plan_result['weight'])
-
-    if n_time < d_time_2:
-        ad_num = plan_result['image_id'].value_counts()
-        for ad in np.setdiff1d(plan_create['image_id'].values, ad_num[ad_num >= 2].index):
-            add_plan = plan_result_pr[plan_result_pr['image_id'] == ad].sort_values('prob', ascending=False)[0:2]
-            add_plan['site_set'] = add_plan['site_set'].map(str)
-            plan_result = plan_result.append(add_plan)
-
-    plan_result['rank_ad_im'] = plan_result.groupby(['ad_account_id', 'image_id'])['prob'].rank(ascending=False,
-                                                                                                method='first')
-    plan_result = plan_result[plan_result['rank_ad_im'] <= 1]
-
-    plan_result = plan_result.drop(['create_time', 'create_date', 'prob', 'rank_ad_im', 'label_ids', 'weight'],
-                                   axis=1)
-    plan_result = plan_result[plan_result['site_set'] == "['SITE_SET_MOMENTS']"]  ## TODO 只跑朋友圈
-    # [SITE_SET_WECHAT] 公众号和小程序adcreative_template_id只跑1480、560、720、721、1064五种
+    plan_result = plan_result.drop(['create_time', 'create_date', 'prob', 'rank_ad_im', 'label_ids', 'weight'], axis=1)
+    # plan_result = plan_result[plan_result['site_set'] == "['SITE_SET_MOMENTS']"]  ## TODO 只跑朋友圈
     plan_result = plan_result[~((plan_result['site_set'] == "['SITE_SET_WECHAT']") & (
         ~plan_result['adcreative_template_id'].isin([1480, 560, 720, 721, 1064])))]
 
@@ -1077,6 +888,19 @@ def main_model():
     # 年龄定向
     plan_result['age'] = plan_result['age'].apply(lambda x: [{'min': 20, 'max': 50}])
 
+    # 固定为roi出价方式  ##TODO
+    plan_result['optimization_goal'] = plan_result['optimization_goal'].apply(
+        lambda x: 'OPTIMIZATIONGOAL_APP_ACTIVATE')  ## TODO  固定ROI
+    plan_result['deep_conversion_type'] = plan_result['optimization_goal'].apply(
+        lambda x: 'DEEP_CONVERSION_WORTH' if x == 'OPTIMIZATIONGOAL_APP_ACTIVATE' else np.nan)
+    plan_result['deep_conversion_worth_spec'] = plan_result['optimization_goal'].apply(
+        lambda x: {'goal': 'GOAL_1DAY_PURCHASE_ROAS',
+                   'expected_roi': 0.02} if x == 'OPTIMIZATIONGOAL_APP_ACTIVATE' else np.nan)
+    plan_result['bid_amount'] = plan_result['optimization_goal'].apply(
+        lambda x: random.randint(9000, 10000) if x == 'OPTIMIZATIONGOAL_APP_ACTIVATE'
+        else (random.randint(95000, 100000) if x == 'OPTIMIZATIONGOAL_APP_PURCHASE'
+              else (random.randint(310000, 320000))))
+
     # 定义组合json
     plan_result['intention'] = plan_result['intention_targeting_tags'].apply(lambda x: {'targeting_tags': x})
     plan_result.drop(['intention_targeting_tags'], axis=1, inplace=True)
@@ -1120,35 +944,89 @@ def main_model():
     for i in range(plan_result.shape[0]):
         ad_info.append(json.loads(plan_result.loc[
                                       i, ["device_price", "app_install_status", "gender", "game_consumption_level",
-                                          "age", "network_type",
+                                          "age", 'custom_audience', 'excluded_custom_audience', "network_type",
                                           "excluded_converted_audience", "geo_location",
                                           "intention", "interest", "behavior"]].to_json()))
     plan_result['targeting'] = ad_info
 
-    plan_result.drop(["device_price", "app_install_status", "gender", "game_consumption_level", "age", "network_type",
+    plan_result.drop(["device_price", "app_install_status", "gender", "game_consumption_level", "age",
+                       'custom_audience', 'excluded_custom_audience', "network_type",
                       "excluded_converted_audience", "geo_location",
                       "intention", "interest", "behavior"], axis=1, inplace=True)
+    # 自动版位优量汇原生
+    # plan_result['scene_spec'] = plan_result['site_set'].apply(lambda x: {'display_scene': ['DISPLAY_SCENE_NATIVE']}
+    #                                     if ('SITE_SET_MOBILE_UNION' in x) | (x == "[]") else np.nan)
 
-    # plan_result['operation'] = 'disable'
+    # 优量汇屏蔽包id
+    plan_result['ad_account_id'] = plan_result['ad_account_id'].map(int)
+    exclude_union_position_package_dict = {8082: 126788, 8854: 126789, 8817: 126790, 8843: 126791,
+                                           8077: 126792, 8839: 126793}
+    plan_result_ = pd.DataFrame()
+    for ad_id in ad_account_id_group:
+        package_id = exclude_union_position_package_dict[ad_id]
+        plan_result_p = plan_result[plan_result['ad_account_id'] == ad_id]
+        plan_result_p['scene_spec'] = plan_result_p['site_set'].apply(lambda x: {'display_scene': ['DISPLAY_SCENE_NATIVE'],
+                                                                             'exclude_union_position_package': [package_id]}
+                        if ('SITE_SET_MOBILE_UNION' in x) | (x =="[]") else np.nan)
+        plan_result_ = plan_result_.append(plan_result_p)
+    plan_result = plan_result_
+
+    plan_result['plan_auto_task_id'] = "11427,12063"
     plan_result['op_id'] = 13268
-    plan_result['flag'] = 'GDT'
+    plan_result['flag'] = plan_result['site_set'].apply(lambda x: 'PYQ' if x == "['SITE_SET_MOMENTS']"
+                                            else 'YLH' if x == "['SITE_SET_MOBILE_UNION']"
+                                            else '自动' if x == "[]"
+                                            else 'XQXS')
     plan_result['game_name'] = '幸存者挑战'
     plan_result['platform'] = 1
+    plan_result['link_name_type'] = plan_result['site_set'].apply(
+                            lambda x: 'DOWNLOAD_APP' if x == "['SITE_SET_MOMENTS']" else np.nan)
+
     plan_result['ad_account_id'] = plan_result['ad_account_id'].astype(int)
     plan_result['site_set'] = plan_result['site_set'].apply(ast.literal_eval)
-    # 周三周四更新，凌晨不跑计划
-    plan_result['time_series'] = plan_result['time_series'].apply(
-        lambda x: x[0:96] + '1111111111000000000011' + x[118:144] + '1111111111000000000011' + x[166:])
+
+    # # 开启一键起量
+    # plan_result['auto_acquisition_enabled'] = True
+    # plan_result['auto_acquisition_budget'] = 6666
+    # # 开启自动扩量
+    # plan_result['expand_enabled'] = True
+    # plan_result['expand_targeting'] = plan_result['expand_targeting'].apply(lambda x: ['age'])
+    # # # 开启加速投放
+    # plan_result['speed_mode'] = 'SPEED_MODE_FAST'
+
+    # 固定品牌名
+    plan_result = plan_result.reset_index(drop=True)
+    plan_result['adcreative_elements'] = plan_result['adcreative_elements'].map(str)
+    plan_result['adcreative_elements'] = plan_result['adcreative_elements'].apply(ast.literal_eval)
+
+    for i in range(plan_result.shape[0]):
+        a = plan_result.loc[i, 'adcreative_elements'].copy()
+        a['brand'] = {'brand_name': '幸存者挑战', 'brand_img': 81958}
+        plan_result.loc[i, 'adcreative_elements'] = str(a)
+
+    plan_result['adcreative_elements'] = plan_result['adcreative_elements'].apply(ast.literal_eval)
+    plan_result['adcreative_elements'] = plan_result['adcreative_elements'].map(str)
+
+    # 周三周四更新，凌晨不跑计
+    plan_result['time_series'] = plan_result.apply(lambda x: "111111111111111111111111111111111111111111"
+                                                             "111111111111111111111111111111111111111111"
+                                                             "111111111111111111111100000000001111111111"
+                                                             "111111111111111111111111111100000000001111"
+                                                             "111111111111111111111111111111111111111111"
+                                                             "111111111111111111111111111111111111111111"
+                                                             "111111111111111111111111111111111111111111"
+                                                             "111111111111111111111111111111111111111111", axis=1)
     plan_result.drop('page_type', axis=1, inplace=True)
+
     plan_result.to_csv('./plan_result.csv', index=0)  # 保存创建日志
 
-    plan_result_seg = pd.DataFrame()
-    for i in range(plan_result.shape[0]):
-        plan_result_seg = plan_result_seg.append(plan_result.iloc[i:i + 1])
-        if (i > 0 and i % 40 == 0) or i == (plan_result.shape[0] - 1):
-            plan_result_seg = plan_result_seg.reset_index(drop=True)
-            print(plan_result_seg.shape[0])
-            rsp_data = get_ad_create(plan_result_seg)
-            print(rsp_data)
-            time.sleep(200)
-            plan_result_seg = pd.DataFrame()
+    # plan_result_seg = pd.DataFrame()
+    # for i in range(plan_result.shape[0]):
+    #     plan_result_seg = plan_result_seg.append(plan_result.iloc[i:i + 1])
+    #     if (i > 0 and i % 40 == 0) or i == (plan_result.shape[0] - 1):
+    #         plan_result_seg = plan_result_seg.reset_index(drop=True)
+    #         print(plan_result_seg.shape[0])
+    #         rsp_data = get_ad_create(plan_result_seg)
+    #         print(rsp_data)
+    #         time.sleep(200)
+    #         plan_result_seg = pd.DataFrame()

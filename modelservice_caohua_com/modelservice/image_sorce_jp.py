@@ -9,9 +9,10 @@ import json
 import warnings
 warnings.filterwarnings('ignore')
 
-
 logger = logging.getLogger('ImageScoreJp')
 
+from modelservice.__myconf__ import get_var
+dicParam = get_var()
 
 #
 # 打包接口
@@ -354,8 +355,8 @@ def etl_image():
     :return:
     '''
     # 链接数据库，并创建游标
-    conn1 = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                            passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8', db='db_data')
+    conn1 = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'], db=dicParam['DB_SLAVE_FENXI_DATABASE'])
     # cur1 = conn1.cursor(cursor=pymysql.cursors.DictCursor)
 
     end = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -407,8 +408,8 @@ def load_to_hive():
     # os.system("hadoop fs -rm -r hdfs://masters/user/hive/warehouse/dws.db/dws_image_score_d/dt="+run_dt+"/hr="+run_hour)
     # os.system("hadoop fs -mkdir hdfs://masters/user/hive/warehouse/dws.db/dws_image_score_d/dt=" + run_dt)
     # os.system("hadoop fs -mkdir hdfs://masters/user/hive/warehouse/dws.db/dws_image_score_d/dt="+run_dt+"/hr="+run_hour)
-    os.system("hadoop fs -put image_info_sorce_jp.csv hdfs://192.168.0.96:8020/warehouse/tablespace/managed/hive/dws.db/dws_image_score_d/dt="+run_dt+"/hr="+run_hour)
-    os.system("beeline -u \"jdbc:hive2://bigdata-zk01.ch:2181,bigdata-zk02.ch:2181,bigdata-zk03.ch:2181/;serviceDiscoveryMode=zooKeeper;zooKeeperNamespace=hiveserver2\" -nhive -phive -e \"msck repair table dws.dws_image_score_d\"")
+    os.system("hadoop fs -put image_info_sorce_jp.csv /warehouse/tablespace/managed/hive/dws.db/dws_image_score_d/dt="+run_dt+"/hr="+run_hour)
+    os.system("beeline -u \"jdbc:hive2://bigdata-zk01.ch:2181,bigdata-zk02.ch:2181,bigdata-zk03.ch:2181/;serviceDiscoveryMode=zooKeeper;zooKeeperNamespace=hiveserver2\" -nhive -phive -e \"set hive.msck.path.validation=ignore;msck repair table dws.dws_image_score_d;\"")
 
 def image_score():
     # 模型导入

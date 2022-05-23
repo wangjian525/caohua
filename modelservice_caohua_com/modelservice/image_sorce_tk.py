@@ -10,7 +10,7 @@ import json
 import warnings
 warnings.filterwarnings('ignore')
 
-logger = logging.getLogger('ImageScoreDg')
+logger = logging.getLogger('ImageScoreTk')
 
 from modelservice.__myconf__ import get_var
 dicParam = get_var()
@@ -18,7 +18,7 @@ dicParam = get_var()
 #
 # 打包接口
 #
-class ImageScoreDg:
+class ImageScoreTk:
     def POST(self):
         # 处理POST请求
         logging.info("do service")
@@ -42,7 +42,7 @@ class ImageScoreDg:
 # 获取素材报表数据
 def getPlanData(conn):
     originSql = '''
-       /*手动查询*/ 
+        /*手动查询*/ 
         SELECT
             a.image_id AS 'image_id',
             a.image_name AS 'image_name',
@@ -139,11 +139,12 @@ def getPlanData(conn):
                                             WHERE
                                                 a.tdate_type = 'day' 
                                                 AND a.tdate <= date( NOW()) AND a.tdate >= DATE_SUB( date( NOW()), INTERVAL 3 DAY ) 
+                                                AND a.platform = 1
                                                 AND a.amount > 0 
-                                                AND a.media_id IN ( 10, 16, 32, 45 ) 
+                                                AND a.media_id IN ( 10, 16 ,32, 45) 
                                                 AND b.image_id IS NOT NULL 
                                                 AND b.image_id <> '' 
-                                                AND a.game_id IN ( SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1112 AND dev_game_id IS NOT NULL ) 
+                                                AND a.game_id IN ( SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1043 AND dev_game_id IS NOT NULL ) 
                                             GROUP BY
                                                 a.game_id,
                                                 a.channel_id,
@@ -171,7 +172,8 @@ def getPlanData(conn):
                                                     db_stdata.st_lauch_report a
                                                     INNER JOIN db_data_ptom.ptom_plan pp ON ( a.game_id = pp.game_id AND a.channel_id = pp.chl_user_id AND a.source_id = pp.source_id ) 
                                                 WHERE
-                                                    a.tdate = date(NOW()) 
+                                                    a.tdate = date(NOW())
+                                                    AND a.platform = 1
                                                     AND a.tdate_type = 'day' 
                                                 GROUP BY
                                                     a.game_id,
@@ -188,7 +190,8 @@ def getPlanData(conn):
                                                 FROM
                                                     db_stdata.st_game_days c 
                                                 WHERE
-                                                    c.report_days = 3 
+                                                    c.report_days = 3
+                                                    AND c.platform = 1	
                                                     AND c.tdate = date( NOW() - INTERVAL 24 HOUR ) 
                                                     AND c.tdate_type = 'day' 
                                                     AND c.query_type = 13 
@@ -232,40 +235,17 @@ def getPlanData(conn):
                                                 a.tdate_type = 'day' 
                                                 AND a.tdate >= DATE_SUB( date( NOW()), INTERVAL 3 DAY ) 
                                                 AND a.tdate <= date( NOW()) AND a.amount > 100 
-                                                AND a.media_id IN ( 10, 16, 32, 45 ) 
+                                                AND a.media_id IN ( 10, 16, 32, 45) 
                                                 AND b.image_id IS NOT NULL 
                                                 AND b.image_id <> '' 
-                                                AND a.game_id IN ( SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1112 AND dev_game_id IS NOT NULL ) 
+                                                AND a.game_id IN ( SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1043 AND dev_game_id IS NOT NULL ) 
                                                 AND a.platform = 1 
                                             GROUP BY
                                                 b.image_id,
                                                 a.media_id 
                                             HAVING
-                                                sum( a.amount ) / sum( a.pay_role_user_num )< 3500 
-                                                AND sum( a.pay_role_user_num )> 0 UNION ALL
-                                            SELECT
-                                                b.image_id,
-                                                a.media_id,
-                                                count( DISTINCT b.plan_id ) AS 'image_valid_source_num' 
-                                            FROM
-                                                db_stdata.st_lauch_report a
-                                                INNER JOIN db_data_ptom.ptom_plan b ON a.game_id = b.game_id 
-                                                AND a.source_id = b.source_id 
-                                                AND a.channel_id = b.chl_user_id 
-                                            WHERE
-                                                a.tdate_type = 'day' 
-                                                AND a.tdate >= DATE_SUB( date( NOW()), INTERVAL 3 DAY ) 
-                                                AND a.tdate <= date( NOW()) AND a.amount > 100 
-                                                AND a.media_id IN ( 10, 16, 32, 45 ) 
-                                                AND b.image_id IS NOT NULL 
-                                                AND b.image_id <> '' 
-                                                AND a.game_id IN ( SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1112 AND dev_game_id IS NOT NULL ) 
-                                                AND a.platform = 2 
-                                            GROUP BY
-                                                b.image_id,
-                                                a.media_id 
-                                            HAVING
-                                                SUM( a.amount ) / SUM( a.pay_role_user_num ) < 5000 AND SUM( a.pay_role_user_num ) > 0 
+                                                sum( a.amount ) / sum( a.pay_role_user_num )< 2500 
+                                                AND sum( a.pay_role_user_num )> 0 
                                             ) c 
                                         GROUP BY
                                             c.image_id,
@@ -284,10 +264,11 @@ def getPlanData(conn):
                                             AND a.channel_id = b.chl_user_id 
                                         WHERE
                                             a.tdate_type = 'day' 
-                                            AND a.amount > 100 
+                                            AND a.amount > 100
+                                            AND a.platform = 1	
                                             AND b.image_id IS NOT NULL 
                                             AND b.image_id <> '' 
-                                            AND a.game_id IN ( SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1112 AND dev_game_id IS NOT NULL ) 
+                                            AND a.game_id IN ( SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1043 AND dev_game_id IS NOT NULL ) 
                                         GROUP BY
                                         b.image_id 
             ) c ON a.image_id = c.image_id
@@ -359,6 +340,7 @@ def etl_image():
     # 链接数据库，并创建游标
     conn1 = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
                            passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'], db=dicParam['DB_SLAVE_FENXI_DATABASE'])
+
     # cur1 = conn1.cursor(cursor=pymysql.cursors.DictCursor)
 
     end = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -374,8 +356,6 @@ def etl_image():
     result_df['data_win'] = 3
     conn1.close()
     return result_df
-
-
 
 
 def change_woe(d, cut, woe):
@@ -409,15 +389,18 @@ def load_to_hive():
     # 将生成的csv文件加载到hive中
     run_dt = datetime.datetime.now().strftime('%Y-%m-%d')
     run_hour = datetime.datetime.now().strftime('%H')
-    os.system("hadoop fs -put image_info_sorce_dg.csv /warehouse/tablespace/managed/hive/dws.db/dws_image_score_d/dt="+run_dt+"/hr="+run_hour)
+    # os.system("hadoop fs -rm -r /warehouse/tablespace/managed/hive/dws.db/dws_image_score_d/dt="+run_dt+"/hr="+run_hour)
+    # os.system("hadoop fs -mkdir /warehouse/tablespace/managed/hive/dws.db/dws_image_score_d/dt=" + run_dt)
+    # os.system("hadoop fs -mkdir /warehouse/tablespace/managed/hive/dws.db/dws_image_score_d/dt="+run_dt+"/hr="+run_hour)
+    os.system("hadoop fs -put image_info_sorce_tk.csv /warehouse/tablespace/managed/hive/dws.db/dws_image_score_d/dt="+run_dt+"/hr="+run_hour)
     os.system("beeline -u \"jdbc:hive2://bigdata-zk01.ch:2181,bigdata-zk02.ch:2181,bigdata-zk03.ch:2181/;serviceDiscoveryMode=zooKeeper;zooKeeperNamespace=hiveserver2\" -nhive -phive -e \"set hive.msck.path.validation=ignore;msck repair table dws.dws_image_score_d;\"")
 
 def image_score():
     # 模型导入
     model_path = "./aimodel/"
-    best_est_XGB = joblib.load(model_path + 'best_est_XGB_dg.pkl')
-    best_est_LGB = joblib.load(model_path + 'best_est_LGB_dg.pkl')
-    best_est_RF = joblib.load(model_path + 'best_est_RF_dg.pkl')
+    best_est_XGB_tk = joblib.load(model_path + 'best_est_XGB_tk.pkl')
+    best_est_LGB_tk = joblib.load(model_path + 'best_est_LGB_tk.pkl')
+    best_est_RF_tk = joblib.load(model_path + 'best_est_RF_tk.pkl')
 
     # 数据获取
     image_info = etl_image()
@@ -426,31 +409,37 @@ def image_score():
     # 将无付费和无创角的成本由0改为无穷大
     image_info['image_create_role_cost'].replace(0, float('inf'), inplace=True)
     image_info['image_create_role_pay_cost'].replace(0, float('inf'), inplace=True)
+
     # 分桶定义（具体值根据训练模型给出）
     pinf = float('inf')  # 正无穷大
     ninf = float('-inf')  # 负无穷大
-    woex1 = [0.903, 0.749, 0.622, 0.533, 0.348, 0.172, -0.067, -0.239, -0.544, -1.139]
-    woex2 = [0.666, -0.361, -0.807, -1.168, -1.446, -2.085]
-    woex3 = [1.148, 0.738, 0.587, 0.423, 0.29, 0.044, -0.025, -0.357, -0.609, -1.028]
-    woex4 = [0.799, -0.125, -0.587, -1.181, -1.593, -2.195, -3.37]
-    woex5 = [0.369, 0.343, 0.083, -0.179, -0.684, -1.42]
-    woex6 = [1.152, -0.099, -0.425, -0.643, -0.568]
-    woex7 = [0.241, -0.201, -0.241, -0.264, 0.09, 0.332, 0.818]
-    woex8 = [-0.631, -0.62, -0.51, -0.239, 0.016, 0.124, 1.146]
-    woex9 = [0.785, -0.234, -0.729, -1.114, -2.194]
-    woex10 = [1.857, -0.009, -0.477, -0.151, -0.057, 0.113]
+    woex1 = [1.047, 1.047, 1.278, 0.463, 0.497, -0.01, -0.005, -0.585, -0.624, -1.426]
+    woex2 = [0.707, -0.28, -0.791, -0.801, -1.795, -1.803]
+    woex3 = [1.109, 1.129, 0.611, 0.424, 0.646, 0.225, -0.409, -0.496, -0.497, -1.409]
+    woex4 = [1.093, 0.152, -0.263, -0.909, -1.932, -2.258, -2.723]
+    woex5 = [0.243, 0.007, -0.284, -0.837, -0.699, -0.686]
+    woex6 = [1.182, 0.749, -0.185, -0.568, -0.571]
+    woex7 = [-0.128, -0.334, -0.312, -0.441, 0.021, -0.158, 0.302, 0.128, 0.569, 0.723]
+    woex8 = [-0.757, -0.214, -0.022, -0.429, 0.595, -0.974, -0.686, 1.191]
+    woex9 = [0.816, -0.707, -0.703, -0.735]
+    woex10 = [0.641, 0.135, -0.372, -0.775, -1.375, -2.061]
+    woex11 = [0.442, -0.849, -0.645, -1.304, -1.618, -1.934]
+    woex12 = [1.02, 0.381, 0.846, -0.241, 0.173, -0.639, -1.992]
+    woex13 = [1.717, 0.662, -0.528, -0.338, -0.344, -0.319]
 
-    cutx1 = [ninf, 709.48, 1012.45, 1441.55, 2018.45, 2840.72, 4061.22, 5963.83, 9426.32, 17642.13, pinf]
-    cutx2 = [ninf, 1, 3, 8, 12, 50, pinf]
-    cutx3 = [ninf, 3.0, 5.0, 7.0, 11.0, 16.0, 24.0, 38.0, 63.0, 133.0, pinf]
-    cutx4 = [ninf, 60, 100, 300, 600, 1000, 4000, pinf]
-    cutx5 = [ninf, 1, 3, 6, 10, 50, pinf]
-    cutx6 = [ninf, 0.01, 0.025, 0.05, 0.075, pinf]
-    cutx7 = [ninf, 50, 100, 150, 200, 300, 400, pinf]
-    cutx8 = [ninf, 2000, 3000, 4000, 6000, 8000, 10000, pinf]
-    cutx9 = [ninf, 0.01, 0.02, 0.03, 0.05, pinf]
-    cutx10 = [ninf, 0.1, 0.2, 0.3, 0.4, 0.6, pinf]
-
+    cutx1 = [ninf, 626.314, 818.768, 1129.172, 1494.544, 2125.82, 3057.808, 4600.364, 8104.098, 15747.532, ninf]
+    cutx2 = [ninf, 1, 3, 8, 12, 50, ninf]
+    cutx3 = [ninf, 3.0, 5.0, 7.0, 11.0, 16.0, 25.0, 40.0, 75.0, 176.0, ninf]
+    cutx4 = [ninf, 12, 60, 200, 700, 2000, 5000, ninf]
+    cutx5 = [ninf, 1, 2, 3, 5, 8, ninf]
+    cutx6 = [ninf, 0.005, 0.01, 0.015, 0.02, ninf]
+    cutx7 = [ninf, 67.057, 83.3311, 97.2183, 114.7394, 133.37, 155.4077, 185.0767, 236.536, 343.5266, ninf]
+    cutx8 = [ninf, 2000, 3000, 4000, 5000, 6000, 7000, 8000, ninf]
+    cutx9 = [ninf, 0.2, 0.6, 0.9, ninf]
+    cutx10 = [ninf, 20, 40, 100, 200, 400, ninf]
+    cutx11 = [ninf, 1, 2, 5, 10, 20, ninf]
+    cutx12 = [ninf, 0.005, 0.01, 0.015, 0.02, 0.025, 0.05, ninf]
+    cutx13 = [ninf, 0.06, 0.1, 0.14, 0.2, 0.3, ninf]
     # 数据转化
     image_info_change = image_info.copy()
     image_info_change['image_run_date_amount'] = change_woe(image_info_change['image_run_date_amount'], cutx1, woex1)
@@ -465,19 +454,25 @@ def image_score():
     image_info_change['image_create_role_cost'] = change_woe(image_info_change['image_create_role_cost'], cutx7, woex7)
     image_info_change['image_create_role_pay_cost'] = change_woe(image_info_change['image_create_role_pay_cost'], cutx8,
                                                                  woex8)
-    image_info_change['image_create_role_roi'] = change_woe(image_info_change['image_create_role_roi'], cutx9, woex9)
+    image_info_change['image_valid_source_rate'] = change_woe(image_info_change['image_valid_source_rate'], cutx9,
+                                                              woex9)
+    image_info_change['image_pay_sum_ability'] = change_woe(image_info_change['image_pay_sum_ability'], cutx10, woex10)
+    image_info_change['image_pay_num_ability'] = change_woe(image_info_change['image_pay_num_ability'], cutx11, woex11)
+    image_info_change['image_create_role_roi'] = change_woe(image_info_change['image_create_role_roi'], cutx12, woex12)
 
     select_feature = ['image_run_date_amount', 'image_create_role_pay_num',
                             'image_create_role_num', 'image_create_role_pay_sum',
                             'image_source_num', 'image_create_role_pay_rate',
                             'image_create_role_cost', 'image_create_role_pay_cost',
+                            'image_valid_source_rate',
+                            'image_pay_sum_ability', 'image_pay_num_ability',
                             'image_create_role_roi']
 
     # 概率预测与分数计算
     feature = image_info_change[select_feature]
-    image_info_change['pred'] = 0.4 * best_est_XGB.predict_proba(feature)[:, 1] + 0.3 * \
-                                      best_est_LGB.predict_proba(feature)[:,
-                                      1] + 0.3 * best_est_RF.predict_proba(feature)[:, 1]
+    image_info_change['pred'] = 0.4 * best_est_XGB_tk.predict_proba(feature)[:, 1] + 0.3 * \
+                                best_est_LGB_tk.predict_proba(feature)[:,
+                                1] + 0.3 * best_est_RF_tk.predict_proba(feature)[:, 1]
     image_info_change['score'] = image_info_change['pred'].apply(Prob2Score)
 
     temp = image_info_change[['image_id', 'media_id', 'score']]
@@ -491,8 +486,9 @@ def image_score():
                                'image_create_role_roi', 'image_create_role_retain_1d', 'model_run_datetime',
                                'data_win', 'score', 'image_launch_time', 'image_source_total_num', 'media_id',
                                'label_ids']]
+
     image_info['label_ids'] = image_info['label_ids'].str.replace(',', ';')
     # 数据导出
-    image_info.to_csv('./image_info_sorce_dg.csv', index=0, encoding='utf_8_sig',header=None)
+    image_info.to_csv('./image_info_sorce_tk.csv', index=0, encoding='utf_8_sig', header=None)
 
 

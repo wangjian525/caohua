@@ -7,6 +7,7 @@ import gc
 import warnings
 import requests
 import random
+import ast
 
 warnings.filterwarnings('ignore')
 import lightgbm as lgb
@@ -17,6 +18,9 @@ import logging
 
 warnings.filterwarnings('ignore')
 logger = logging.getLogger('CreatePlan2')
+
+from modelservice.__myconf__ import get_var
+dicParam = get_var()
 
 
 #
@@ -43,8 +47,8 @@ class CreatePlan2:
 
 
 def get_game_id():
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1056 AND dev_game_id IS NOT NULL 
@@ -62,8 +66,8 @@ def get_plan_info():
     game_id = list(map(lambda x: x['game_id'], game_id))
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
-    conn = pymysql.connect(host='db-slave-modeltoufang-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8', db='db_ptom')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_TOUFANG_HOST'], port=int(dicParam['DB_SLAVE_TOUFANG_PORT']), user=dicParam['DB_SLAVE_TOUFANG_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_TOUFANG_PASSWORD'], db=dicParam['DB_SLAVE_TOUFANG_DATABASE'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
     /*手动查询*/
@@ -92,8 +96,8 @@ def get_plan_info():
 
 # 获取image_id,label_ids
 def get_image_info():
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         SELECT
@@ -129,8 +133,8 @@ def get_launch_report():
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
 
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         /*手动查询*/
@@ -208,21 +212,41 @@ def get_all_data():
     image_info['image_id'] = image_info['image_id'].astype(int)
     return plan_info, image_info, launch_report
 
+# 获取不漏点标签
+def get_legal_image():
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_TOUFANG_HOST'], port=int(dicParam['DB_SLAVE_TOUFANG_PORT']), user=dicParam['DB_SLAVE_TOUFANG_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_TOUFANG_PASSWORD'], db=dicParam['DB_SLAVE_TOUFANG_DATABASE'])
+    cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
+    sql = '''
+       SELECT
+            image_id 
+        FROM
+            db_ptom.ptom_image_info a 
+        WHERE
+            FIND_IN_SET( 235, label_ids ) 
+
+    '''
+    cur.execute(sql)
+    result_df = pd.read_sql(sql, conn)
+    cur.close()
+    conn.close()
+    return result_df['image_id'].values
+
 
 # 获取score_image (分数大于550的image_id)
 def get_score_image():
-    conn = connect(host='192.168.0.97', port=10000, auth_mechanism='PLAIN', user='hadoop',
-                   password='Ycjh8FxiaoMtShZRd3-97%3hCEL0CK4ns1w', database='default')
+    conn = connect(host=dicParam['HIVE_HOST'], port=int(dicParam['HIVE_PORT']), auth_mechanism=dicParam['HIVE_AUTH_MECHANISM'], user=dicParam['HIVE_USERNAME'],
+                   password=dicParam['HIVE_PASSWORD'], database=dicParam['HIVE_DATABASE'])
     cursor = conn.cursor()
     sql_engine = 'set hive.execution.engine=tez'
-    sql = 'select image_id,label_ids from dws.dws_image_score_d where media_id=10 and score>=500 and dt=CURRENT_DATE group by image_id,label_ids'
+    sql = 'select image_id,label_ids from dws.dws_image_score_d where media_id=10 and score>=560 and dt=CURRENT_DATE group by image_id,label_ids'
     cursor.execute(sql_engine)
     cursor.execute(sql)
     result = as_pandas(cursor)
     result['label_ids'] = result['label_ids'].astype(str)
     result['label_ids'] = result['label_ids'].apply(lambda x: x.strip('-1;') if '-1' in x else x)
     result['label_ids'] = pd.to_numeric(result['label_ids'], errors='coerce')
-    result = result[result['label_ids'].isin([27])]
+    # result = result[result['label_ids'].isin([234])]
     #     print(result)
     # 关闭链接
     cursor.close()
@@ -231,51 +255,153 @@ def get_score_image():
     return result['image_id'].values
 
 
-# 获取近期计划的运营数据
-def get_now_plan_roi():
+# 获取近期所有计划的消耗情况
+def get_amount_info():
     game_id = get_game_id()
     game_id = list(map(lambda x: x['game_id'], game_id))
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
-
-    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
-        SELECT
-            a.ad_account_id,
-            b.channel_id,
-            b.source_id,
-            b.tdate,
-            b.amount,
-            b.new_role_money,
-            b.new_role_money / b.amount AS roi,
-            b.pay_role_user_num / b.create_role_num AS pay_rate 
-        FROM
-            db_data_ptom.ptom_plan a 
-        left join
-            db_stdata.st_lauch_report b
-        on a.chl_user_id=b.channel_id and a.source_id=b.source_id
-        WHERE
-            b.tdate >= date( NOW() - INTERVAL 168 HOUR ) 
-            AND b.tdate_type = 'day' 
-            AND b.media_id = 10 
-            AND b.game_id IN ({}) 
-            AND b.amount >= 500 
-            AND b.pay_role_user_num >= 1 
-            AND b.new_role_money >= 42
-            AND (b.new_role_money / b.amount)>=0.018
+    /*手动查询*/
+            SELECT
+                tdate,
+                channel_id,
+                source_id,
+                game_id,
+                media_id,
+                platform,
+                amount 
+            FROM
+                db_stdata.st_lauch_report 
+            WHERE
+                game_id IN ({}) 
+                AND tdate_type = 'day' 
+                AND tdate >= date( NOW() - INTERVAL 7 DAY )
+                AND tdate <= date( NOW() - INTERVAL 1 DAY )
+                AND media_id = 10
+                AND platform = 1
     '''
     finalSql = sql.format(game_id)
-    cur.execute(finalSql)
     result_df = pd.read_sql(finalSql, conn)
     cur.close()
     conn.close()
-    result_df['tdate'] = pd.to_datetime(result_df['tdate'])
-    result_df = result_df.sort_values('tdate')
-    result_df = result_df.drop_duplicates(['channel_id', 'source_id'], keep='first')
 
     return result_df
+
+
+def get_data_7():
+    game_id = get_game_id()
+    game_id = list(map(lambda x: x['game_id'], game_id))
+    game_id = [str(i) for i in game_id]
+    game_id = ','.join(game_id)
+    conn = connect(host=dicParam['HIVE_HOST'], port=int(dicParam['HIVE_PORT']), auth_mechanism=dicParam['HIVE_AUTH_MECHANISM'], user=dicParam['HIVE_USERNAME'],
+                   password=dicParam['HIVE_PASSWORD'], database=dicParam['HIVE_DATABASE'])
+    cursor = conn.cursor()
+    sql = '''
+        SELECT
+            user_id,
+            game_id,
+            channel_id,
+            source_id,
+            role_id,
+            platform,
+            media_id,
+            pay_num,
+            pay_sum,
+            create_role_time,
+            created_role_day,
+            pay_sum AS pay_7_pred,
+            dt 
+        FROM
+            tmp_data.tmp_roles_portrait_info_train2 
+        WHERE
+            dt = CURRENT_DATE 
+            AND created_role_day = 7
+            AND media_id = 10
+            AND platform = 1
+            and game_id IN ({})
+    '''
+    finalSql = sql.format(game_id)
+    cursor.execute(finalSql)
+    result = as_pandas(cursor)
+
+    # 关闭链接
+    cursor.close()
+    conn.close()
+
+    return result
+
+
+def get_data_1_6():
+    game_id = get_game_id()
+    game_id = list(map(lambda x: x['game_id'], game_id))
+    game_id = [str(i) for i in game_id]
+    game_id = ','.join(game_id)
+    conn = connect(host=dicParam['HIVE_HOST'], port=int(dicParam['HIVE_PORT']), auth_mechanism=dicParam['HIVE_AUTH_MECHANISM'], user=dicParam['HIVE_USERNAME'],
+                   password=dicParam['HIVE_PASSWORD'], database=dicParam['HIVE_DATABASE'])
+    cursor = conn.cursor()
+    sql = '''
+            SELECT
+                user_id,
+                game_id,
+                channel_id,
+                source_id,
+                role_id,
+                platform,
+                media_id,
+                pay_num,
+                pay_sum,
+                create_role_time,
+                created_role_day,
+                pay_7_pred,
+                dt 
+            FROM
+                tmp_data.tmp_roles_portrait_info_predict 
+            WHERE
+                dt = CURRENT_DATE
+                AND media_id = 10
+                AND platform = 1
+                and game_id IN ({})
+
+    '''
+    finalSql = sql.format(game_id)
+    cursor.execute(finalSql)
+    result = as_pandas(cursor)
+
+    # 关闭链接
+    cursor.close()
+    conn.close()
+
+    return result
+
+
+# 获取近期计划的运营数据
+def get_now_plan_roi():
+    # 获取消耗数据
+    amount_info = get_amount_info()
+    # 获取回款预测数据
+    df_roi_1 = get_data_7()
+    df_roi_2 = get_data_1_6()
+    df_roi = df_roi_1.append(df_roi_2)
+    # 求计划付费成本，回款率，付费人数
+    df_roi['create_role_time'] = pd.to_datetime(df_roi['create_role_time']).dt.date
+    df_roi['pay_num'] = df_roi['pay_num'].replace(0, np.nan)
+    source_df_1 = pd.DataFrame({'7_pay_sum':df_roi.groupby(['channel_id','source_id'])['pay_7_pred'].sum()}).reset_index()
+    source_df_2 = pd.DataFrame({'pay_num':df_roi.groupby(['channel_id','source_id'])['pay_num'].count()}).reset_index()
+    source_df_3 = pd.DataFrame({'amount':amount_info.groupby(['channel_id','source_id'])['amount'].sum()}).reset_index()
+    source_df_3 = source_df_3[source_df_3['amount']>0]
+    source_df = pd.merge(source_df_1,source_df_2,on=['channel_id','source_id'],how='outer')
+    source_df = pd.merge(source_df,source_df_3,on=['channel_id','source_id'],how='outer')
+    source_df = source_df.fillna(0)
+    source_df = source_df[source_df['amount']>0]
+    source_df['roi'] = source_df['7_pay_sum'] / source_df['amount']
+    source_df['pay_cost'] = source_df['amount'] / source_df['pay_num']
+    # 选择相关指标达标的计划
+    result = source_df[(source_df['pay_num']>=2)&(source_df['pay_cost']<=5000)&(source_df['roi']>=0.1)]
+    return result
 
 
 # 获取近期优化计划的创意数据
@@ -285,8 +411,8 @@ def get_creative():
     game_id = [str(i) for i in game_id]
     game_id = ','.join(game_id)
 
-    conn = pymysql.connect(host='db-slave-modeltoufang-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8', db='db_ptom')
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_TOUFANG_HOST'], port=int(dicParam['DB_SLAVE_TOUFANG_PORT']), user=dicParam['DB_SLAVE_TOUFANG_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_TOUFANG_PASSWORD'], db=dicParam['DB_SLAVE_TOUFANG_DATABASE'])
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
         /*手动查询*/ 
@@ -301,7 +427,7 @@ def get_creative():
             LEFT JOIN db_ptom.ptom_plan b ON a.plan_name = b.plan_name 
         WHERE
             a.media_id = 10 
-            AND b.create_time >= date( NOW() - INTERVAL 1440 HOUR )    # 近60天
+            AND b.create_time >= date( NOW() - INTERVAL 720 HOUR )    # 近30天
             AND a.game_id IN ({}) 
     '''
     finalSql = sql.format(game_id)
@@ -312,15 +438,34 @@ def get_creative():
     return result
 
 
-# 构造新计划  , 幸存危机
+def get_manager_id():
+    conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                           passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
+    cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
+    sql = '''
+    /*手动查询*/
+        SELECT
+            channel_id,
+            manager_id 
+        FROM
+            db_data.dim_channel_info
+    '''
+    result_df = pd.read_sql(sql, conn)
+    cur.close()
+    conn.close()
+
+    return result_df
+
+
+# 构造新计划  , 7323, 7324, 7325, 7326   6987, 6989, 6990, 6981, 6866, 6837, 7184
 def create_plan(df, score_image):
     # 选ad_account_id、image_id每个账号+素材8条
-    game_id = 1001540
+    game_id = 1001703
     # df = df[df['game_id'] == game_id]
-    df = df[df['game_id'].isin([1001703, 1001756, 1001772, 1001777, 1001762, 1001540, 1001807])]
-    ad_account_id_group = np.array([7770, 7771, 7772, 7773, 7856])
+    #     df = df[df['game_id'].isin([1001379, 1001703, 1001756, 1001772])]
+    ad_account_id_group = np.array([9872, 9873, 9874, 9875, 9876])
     image_id_group = np.intersect1d(df['image_id'].unique(), score_image)
-    # image_id_group = list(filter(lambda x: x >= 32861, image_id_group))
+    image_id_group = list(filter(lambda x: x >= 32861, image_id_group))
 
     print(image_id_group)
     df = df[df['deep_bid_type'].isin(['BID_PER_ACTION', 'ROI_COEFFICIENT'])]
@@ -347,68 +492,57 @@ def create_plan(df, score_image):
     # 选android_osv
     count_df = pd.DataFrame(data=df['android_osv'].value_counts()).reset_index()
     count_df.columns = ['col', 'counts']
-    if count_df.shape[0] != 0:
-        count_df['pct'] = count_df['counts'] / count_df['counts'].sum()
-        plan['android_osv'] = plan['platform'].apply(lambda x: 'NONE' if x == '[IOS]' else
-             np.random.choice(count_df['col'].values, 1, p=count_df['pct'].values)[0])
-    if count_df.shape[0] == 0:
-        plan['android_osv'] = plan['platform'].apply(lambda x: 'NONE' if x == '[IOS]' else np.nan)
+    count_df['pct'] = count_df['counts'] / count_df['counts'].sum()
+    plan['android_osv'] = plan['platform'].apply(
+        lambda x: 'NONE' if x == '[IOS]' else np.random.choice(count_df['col'].values, 1, p=count_df['pct'].values)[0])
 
     # 选ios_osv
     count_df = pd.DataFrame(data=df['ios_osv'].value_counts()).reset_index()
     count_df.columns = ['col', 'counts']
-    if count_df.shape[0] != 0:
-        count_df['pct'] = count_df['counts'] / count_df['counts'].sum()
-        plan['ios_osv'] = plan['platform'].apply(lambda x: 'NONE' if x == '[ANDROID]' else
-           np.random.choice(count_df['col'].values, 1, p=count_df['pct'].values)[0])
-    if count_df.shape[0] == 0:
-        plan['ios_osv'] = plan['platform'].apply(lambda x: 'NONE' if x == '[ANDROID]' else np.nan)
+    count_df['pct'] = count_df['counts'] / count_df['counts'].sum()
+    plan['ios_osv'] = plan['platform'].apply(
+        lambda x: 'NONE' if x == '[ANDROID]' else np.random.choice(count_df['col'].values, 1, p=count_df['pct'].values)[
+            0])
 
     # 选budget
     plan['budget'] = plan['platform'].apply(lambda x: 3300 if x == '[ANDROID]' else 4000)
 
     # 选'ad_keywords', 'title_list', 'third_industry_id'  创意
-    sample_df = df[['ad_keywords', 'title_list', 'third_industry_id']]
+    sample_df = df[['manager_id', 'ad_keywords', 'title_list', 'third_industry_id']]
     sample_df = sample_df.sample(n=plan.shape[0], replace=True).reset_index(drop=True)
     plan = pd.concat([plan, sample_df], axis=1)
+    plan = plan.rename(columns={'manager_id': 'manager_id_1'})
 
-    # 选'retargeting_tags_include','retargeting_tags_exclude'  人群包定向
-    sample_df = df[['retargeting_tags_include', 'retargeting_tags_exclude']]
+    # 选'retargeting_tags_include','retargeting_tags_exclude'  人群包定向 版位
+    sample_df = df[
+        ['manager_id', 'inventory_type', 'retargeting_tags_include', 'retargeting_tags_exclude', 'delivery_range',
+         'city',
+         'location_type', 'gender', 'age', 'ac', 'launch_price', 'auto_extend_enabled', 'hide_if_exists',
+         'hide_if_converted',
+         'schedule_time', 'flow_control_mode']]
     sample_df = sample_df.sample(n=plan.shape[0], replace=True).reset_index(drop=True)
+    sample_df['inventory_type'] = sample_df['inventory_type'].apply(lambda x: list(filter(None, x)))
     plan = pd.concat([plan, sample_df], axis=1)
+    plan = plan.rename(columns={'manager_id': 'manager_id_2'})
 
     # 选'interest_action_mode','action_scene','action_days','action_categories' ,'interest_categories' 行为兴趣
-    sample_df = df[['interest_action_mode', 'action_scene', 'action_days', 'action_categories', 'interest_categories']]
+    sample_df = df[['manager_id', 'interest_action_mode', 'action_scene', 'action_days', 'action_categories',
+                    'interest_categories']]
     sample_df = sample_df.sample(n=plan.shape[0], replace=True).reset_index(drop=True)
     plan = pd.concat([plan, sample_df], axis=1)
-    plan['action_days'] = plan['action_days'].convert_dtypes()
+    plan = plan.rename(columns={'manager_id': 'manager_id_3'})
 
     # 选'deep_bid_type','roi_goal','smart_bid_type','adjust_cpa','cpa_bid'出价方式
-    sample_df = df[['deep_bid_type', 'roi_goal', 'smart_bid_type', 'adjust_cpa', 'cpa_bid']]
+    sample_df = df[['manager_id', 'deep_bid_type', 'roi_goal', 'smart_bid_type', 'adjust_cpa', 'cpa_bid']]
     sample_df = sample_df[sample_df['deep_bid_type'].isin(['ROI_COEFFICIENT', 'BID_PER_ACTION'])]
     sample_df = sample_df.sample(n=plan.shape[0], replace=True).reset_index(drop=True)
     plan = pd.concat([plan, sample_df], axis=1)
-    plan['adjust_cpa'] = plan['adjust_cpa'].fillna(0)
-    plan['adjust_cpa'] = plan['adjust_cpa'].astype(int)
+    plan = plan.rename(columns={'manager_id': 'manager_id_4'})
 
-    # 选
-    cols = ['delivery_range', 'city', 'location_type', 'gender', 'age', 'ac', 'launch_price',
-            'auto_extend_enabled', 'hide_if_exists', 'hide_if_converted', 'schedule_time', 'flow_control_mode']
-    for col in cols:
-        count_df = pd.DataFrame(data=df[col].value_counts()).reset_index()
-        count_df.columns = ['col', 'counts']
-        count_df['pct'] = count_df['counts'] / count_df['counts'].sum()
-        plan[col] = plan.apply(lambda x: np.random.choice(count_df['col'].values, 1, p=count_df['pct'].values)[0],
-                               axis=1)
+    # 计划归因channel_id
+    plan['attribute'] = plan.apply(lambda x: [x.manager_id_1, x.manager_id_2, x.manager_id_3, x.manager_id_4], axis=1)
+    plan.drop(['manager_id_1', 'manager_id_2', 'manager_id_3', 'manager_id_4'], axis=1, inplace=True)
 
-    # 选inventory_type 创意投放位置
-    count_df = pd.DataFrame(data=df['inventory_type'].value_counts()).reset_index()
-    count_df.columns = ['col', 'counts']
-    count_df['col'] = count_df['col'].apply(lambda x: list(filter(None, x)))
-
-    count_df['pct'] = count_df['counts'] / count_df['counts'].sum()
-    plan['inventory_type'] = plan.apply(
-        lambda x: np.random.choice(count_df['col'].values, 1, p=count_df['pct'].values)[0], axis=1)
     plan['create_time'] = pd.to_datetime(pd.datetime.now())
     plan['create_date'] = pd.to_datetime(pd.datetime.now().date())
 
@@ -459,7 +593,7 @@ def get_train_df():
              'new_role_money'], axis=1, inplace=True)
 
     plan_info['create_time'] = pd.to_datetime(plan_info['create_time'])
-    plan_info_current = plan_info[plan_info['create_time'] >= pd.datetime.now() - pd.DateOffset(30)]
+    plan_info_current = plan_info[plan_info['create_time'] >= pd.datetime.now() - pd.DateOffset(15)]
 
     creative_info = get_creative()
     creative_info['title_list'] = creative_info['title_list'].fillna('[]')
@@ -471,6 +605,7 @@ def get_train_df():
     now_plan_roi = pd.merge(now_plan_roi, creative_info, on=['channel_id', 'source_id'], how='left')
 
     score_image = get_score_image()
+    # score_image = get_legal_image()
 
     df_create = pd.merge(plan_info_current, image_info, on=['channel_id', 'source_id'], how='left')
     df_create = pd.merge(df_create, now_plan_roi, on=['channel_id', 'source_id'], how='inner')
@@ -483,21 +618,32 @@ def get_train_df():
     df_create['image_id'] = df_create['image_id'].astype(int)
 
     df_create = df_create[df_create['platform'] == 1]
+
+    # 填充 android_osv   ios_osv
+    df_create['android_osv'] = df_create['android_osv'].fillna('NONE')
+    df_create['ios_osv'] = df_create['ios_osv'].fillna('NONE')
+    df_create['channel_id'] = df_create['channel_id'].map(str)
+    manager_id = get_manager_id()
+    manager_id['channel_id'] = manager_id['channel_id'].map(str)
+    # manager_id['manager_id'] = manager_id['manager_id'].map(str)
+    df_create = pd.merge(df_create, manager_id, on='channel_id', how='left')
+
     # print('df_create_shape', df_create.shape)
     df_create.to_csv('./df_create.csv')
 
     plan_create = create_plan(df_create, score_image)
 
     # print('plan_create', plan_create.shape)
-
     image_info.dropna(subset=['image_id'], inplace=True)
     image_info['image_id'] = image_info['image_id'].astype(int)
     plan_create = pd.merge(plan_create, image_info[['image_id', 'label_ids']].drop_duplicates(), on='image_id',
                            how='left')
 
-    plan_create_train = plan_create.drop(['budget', 'cpa_bid', 'ad_keywords', 'title_list', 'third_industry_id'],
-                                         axis=1)
+    plan_create_train = plan_create.drop(
+        ['budget', 'cpa_bid', 'ad_keywords', 'title_list', 'third_industry_id', 'attribute'],
+        axis=1)
     plan_create_train['platform'] = plan_create_train['platform'].map({'[ANDROID]': 1, '[IOS]': 2})
+
     df['train_label'] = 1
     plan_create_train['train_label'] = 0
     plan_create_train['label'] = -1
@@ -537,6 +683,7 @@ def get_ad_create(plan_result):
     for i in range(plan_result.shape[0]):
         ad_info.append(json.loads(plan_result.iloc[i].to_json()))
     open_api_url_prefix = "https://ptom.caohua.com/"
+#     open_api_url_prefix = "https://ptom-pre.caohua.com/"   ## 预发布环境
     uri = "model/generationPlanBatchTask"
     url = open_api_url_prefix + uri
     params = {
@@ -551,6 +698,7 @@ def get_ad_create(plan_result):
 
 def main_model():
     df, plan_create = get_train_df()
+    # 训练
     train_data = df[df['train_label'] == 1]
     test_data = df[df['train_label'] == 0]
 
@@ -584,12 +732,11 @@ def main_model():
                       valid_sets=[train_data, val_data], verbose_eval=-1)
 
     # 预测
-
     features_test = test_data.drop(['label'], axis=1)
     y_predict = model.predict(features_test)
 
     plan_create['prob'] = y_predict
-    threshold = pd.Series(y_predict).sort_values(ascending=False).reset_index(drop=True)[int(y_predict.shape[0] * 0.3)]
+    threshold = pd.Series(y_predict).sort_values(ascending=False).reset_index(drop=True)[int(y_predict.shape[0] * 0.5)]
 
     plan_result = plan_create[plan_create['prob'] >= threshold]
     plan_result['rank_ad_im'] = plan_result.groupby(['ad_account_id', 'image_id'])['prob'].rank(ascending=False,
@@ -599,50 +746,60 @@ def main_model():
     plan_create['rank_ad_im'] = plan_create.groupby(['ad_account_id', 'image_id'])['prob'].rank(ascending=False,
                                                                                                 method='first')
     plan_result_pr = plan_create[plan_create['rank_ad_im'] <= 1]
-
     ad_num = plan_result['ad_account_id'].value_counts()
     for ad in np.setdiff1d(plan_create['ad_account_id'].values, ad_num[ad_num > 2].index):
-        add_plan = plan_result_pr[plan_result_pr['ad_account_id'] == ad].sort_values('prob', ascending=False)[0:2]
-        plan_result = plan_result.append(add_plan)
-
-    ad_num = plan_result['image_id'].value_counts()
-    for ad in np.setdiff1d(plan_create['image_id'].values, ad_num[ad_num >= 2].index):
-        add_plan = plan_result_pr[plan_result_pr['image_id'] == ad].sort_values('prob', ascending=False)[0:2]
+        add_plan = plan_result_pr[plan_result_pr['ad_account_id'] == ad].sort_values('prob', ascending=False)[0:3]
         plan_result = plan_result.append(add_plan)
 
     plan_result['weight'] = plan_result.groupby(['ad_account_id'])['game_id'].transform('count')
+    # 只跑每次付费
+    plan_result = plan_result[plan_result['deep_bid_type'] == 'BID_PER_ACTION']  ## TODO
 
-    if plan_result.shape[0] > 50:
-        plan_result = plan_result.sample(50, weights=plan_result['weight'])
+    ad_account_id_group = np.array([9872, 9873, 9874, 9875, 9876])  ## TODO
 
-    ad_num = plan_result['image_id'].value_counts()
-    for ad in np.setdiff1d(plan_create['image_id'].values, ad_num[ad_num >= 1].index):
-        add_plan = plan_result_pr[plan_result_pr['image_id'] == ad].sort_values('prob', ascending=False)[0:1]
-        plan_result = plan_result.append(add_plan)
+    plan_num = 5
+    plan_result_n = pd.DataFrame()
+    for account_id in ad_account_id_group:
+        plan_result_ = plan_result[plan_result['ad_account_id'] == account_id]
+        plan_result_ = plan_result_.sample(plan_num)
+        plan_result_n = plan_result_n.append(plan_result_)
+    plan_result = plan_result_n
 
-    plan_result['rank_ad_im'] = plan_result.groupby(['ad_account_id', 'image_id'])['prob'].rank(ascending=False,
-                                                                                                method='first')
-    plan_result = plan_result[plan_result['rank_ad_im'] <= 1]
+    # if plan_result.shape[0] > 40:
+    #     plan_result = plan_result.sample(40, weights=plan_result['weight'])
+    # if plan_result.shape[0] > 12:
+    #     plan_result = plan_result.sample(12)
 
     plan_result = plan_result.drop(['create_time', 'create_date', 'prob', 'rank_ad_im', 'label_ids', 'weight'], axis=1)
     plan_result['convertIndex'] = plan_result['deep_bid_type'].apply(lambda x: 13 if x == 'BID_PER_ACTION' else 14)
 
+    # 优选广告位
+    plan_result['inventory_type'] = plan_result['inventory_type'].map(str)
+    plan_result['inventory_type'] = plan_result['inventory_type'].apply(lambda x: "[]" if x ==
+                  "['INVENTORY_UNION_SLOT', 'INVENTORY_AWEME_FEED', 'INVENTORY_FEED', 'INVENTORY_UNION_SPLASH_SLOT', "
+                  "'INVENTORY_VIDEO_FEED', 'INVENTORY_HOTSOON_FEED', 'INVENTORY_TOMATO_NOVEL']" else x)
+    plan_result['inventory_type'] = plan_result['inventory_type'].apply(ast.literal_eval)
+
     plan_result['budget'] = plan_result.apply(lambda x: x.budget if x.budget >= x.cpa_bid else x.cpa_bid, axis=1)
     plan_result['budget'] = plan_result['budget'].apply(np.ceil)
-    plan_result['cpa_bid'] = plan_result['cpa_bid'].apply(lambda x: random.randint(620, 660))
+    # plan_result['cpa_bid'] = plan_result['cpa_bid'].apply(lambda x: x if x >= 520 else random.randint(520, 550))
+    plan_result['cpa_bid'] = plan_result['cpa_bid'].apply(lambda x: random.randint(700, 750))
+    # plan_result['cpa_bid'] = plan_result['cpa_bid'].apply(lambda x: random.randint(650, 680))
     # plan_result['operation'] = 'disable'
-    plan_result['web_url'] = 'https://www.chengzijianzhan.com/tetris/page/7010975247567192101/'
+    plan_result['web_url'] = 'https://www.chengzijianzhan.com/tetris/page/7044279938891825160/'
+    plan_result['plan_auto_task_id'] = "11002,10998,12098"
     plan_result['op_id'] = 13268
     plan_result['district'] = 'CITY'
     plan_result['flag'] = 'SSR'
+
     # 人群包报错，直接先赋值为[]
     # plan_result['retargeting_tags_include'] = [[] for _ in range(len(plan_result))]
     # plan_result['retargeting_tags_exclude'] = [[] for _ in range(len(plan_result))]
     # 周三周四凌晨更新，不跑计划
     plan_result['schedule_time'] = plan_result['schedule_time'].apply(
-        lambda x: x[0:96] + '1111111111000000000011' + x[118:144] + '1111111111000000000011' + x[166:])
+        lambda x: x[0:96] + '1111111111000000000001' + x[118:144] + '1111111111000000000001' + x[166:])
     plan_result.to_csv('./plan_result.csv', index=0)  # 保存创建日志
-    print(plan_result.shape[0])
-    rsp_data = get_ad_create(plan_result)
-    print(rsp_data)
+    print('计划数量%d' % plan_result.shape[0])
+    # rsp_data = get_ad_create(plan_result)
+    # print(rsp_data)
 

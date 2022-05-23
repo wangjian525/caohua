@@ -10,9 +10,10 @@ import json
 import warnings
 warnings.filterwarnings('ignore')
 
-
 logger = logging.getLogger('ImageScore')
 
+from modelservice.__myconf__ import get_var
+dicParam = get_var()
 
 #
 # 打包接口
@@ -139,7 +140,7 @@ def getPlanData(conn):
                                                     a.tdate_type = 'day' 
                                                     AND a.tdate <= date( NOW()) AND a.tdate >= DATE_SUB( date( NOW()), INTERVAL 3 DAY ) 
                                                     AND a.amount > 0 
-                                                    AND a.media_id IN ( 10, 16 ) 
+                                                    AND a.media_id IN ( 10, 16, 32, 45 ) 
                                                     AND b.image_id IS NOT NULL 
                                                     AND b.image_id <> '' 
                                                     AND a.game_id IN ( SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1056 AND dev_game_id IS NOT NULL ) 
@@ -231,7 +232,7 @@ def getPlanData(conn):
                                                     a.tdate_type = 'day' 
                                                     AND a.tdate >= DATE_SUB( date( NOW()), INTERVAL 3 DAY ) 
                                                     AND a.tdate <= date( NOW()) AND a.amount > 100 
-                                                    AND a.media_id IN ( 10, 16 ) 
+                                                    AND a.media_id IN ( 10, 16, 32, 45 ) 
                                                     AND b.image_id IS NOT NULL 
                                                     AND b.image_id <> '' 
                                                     AND a.game_id IN ( SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1056 AND dev_game_id IS NOT NULL ) 
@@ -255,7 +256,7 @@ def getPlanData(conn):
                                                     a.tdate_type = 'day' 
                                                     AND a.tdate >= DATE_SUB( date( NOW()), INTERVAL 3 DAY ) 
                                                     AND a.tdate <= date( NOW()) AND a.amount > 100 
-                                                    AND a.media_id IN ( 10, 16 ) 
+                                                    AND a.media_id IN ( 10, 16, 32, 45 ) 
                                                     AND b.image_id IS NOT NULL 
                                                     AND b.image_id <> '' 
                                                     AND a.game_id IN ( SELECT dev_game_id AS game_id FROM db_data.t_game_config WHERE game_id = 1056 AND dev_game_id IS NOT NULL ) 
@@ -325,7 +326,7 @@ def getCreateRoleRetain(conn, begin, end):
                     m.tdate >= '%s' 
                     AND m.tdate <= '%s' 
                     AND m.tdate_type = 'day'
-                    AND m.media_id in (10,16) 
+                    AND m.media_id in (10,16, 32, 45) 
                     AND m.query_type = 19 
                     AND m.server_id =- 1 
                     AND m.retain_date = 2 
@@ -356,8 +357,8 @@ def etl_image():
     :return:
     '''
     # 链接数据库，并创建游标
-    conn1 = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
-                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8', db='db_data')
+    conn1 = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                            passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'], db=dicParam['DB_SLAVE_FENXI_DATABASE'])
 
     # cur1 = conn1.cursor(cursor=pymysql.cursors.DictCursor)
 
@@ -407,11 +408,11 @@ def load_to_hive():
     # 将生成的csv文件加载到hive中
     run_dt = datetime.datetime.now().strftime('%Y-%m-%d')
     run_hour = datetime.datetime.now().strftime('%H')
-    os.system("hadoop fs -rm -r hdfs://192.168.0.96:8020/warehouse/tablespace/managed/hive/dws.db/dws_image_score_d/dt="+run_dt+"/hr="+run_hour)
-    os.system("hadoop fs -mkdir hdfs://192.168.0.96:8020/warehouse/tablespace/managed/hive/dws.db/dws_image_score_d/dt=" + run_dt)
-    os.system("hadoop fs -mkdir hdfs://192.168.0.96:8020/warehouse/tablespace/managed/hive/dws.db/dws_image_score_d/dt="+run_dt+"/hr="+run_hour)
-    os.system("hadoop fs -put image_info_sorce.csv hdfs://192.168.0.96:8020/warehouse/tablespace/managed/hive/dws.db/dws_image_score_d/dt="+run_dt+"/hr="+run_hour)
-    os.system("beeline -u \"jdbc:hive2://bigdata-zk01.ch:2181,bigdata-zk02.ch:2181,bigdata-zk03.ch:2181/;serviceDiscoveryMode=zooKeeper;zooKeeperNamespace=hiveserver2\" -nhive -phive -e \"msck repair table dws.dws_image_score_d\"")
+    os.system("hadoop fs -rm -r /warehouse/tablespace/managed/hive/dws.db/dws_image_score_d/dt="+run_dt+"/hr="+run_hour)
+    os.system("hadoop fs -mkdir /warehouse/tablespace/managed/hive/dws.db/dws_image_score_d/dt=" + run_dt)
+    os.system("hadoop fs -mkdir /warehouse/tablespace/managed/hive/dws.db/dws_image_score_d/dt="+run_dt+"/hr="+run_hour)
+    os.system("hadoop fs -put image_info_sorce.csv /warehouse/tablespace/managed/hive/dws.db/dws_image_score_d/dt="+run_dt+"/hr="+run_hour)
+    os.system("beeline -u \"jdbc:hive2://bigdata-zk01.ch:2181,bigdata-zk02.ch:2181,bigdata-zk03.ch:2181/;serviceDiscoveryMode=zooKeeper;zooKeeperNamespace=hiveserver2\" -nhive -phive -e \"set hive.msck.path.validation=ignore;msck repair table dws.dws_image_score_d;\"")
 
 def image_score():
     # 模型导入
@@ -433,59 +434,68 @@ def image_score():
     # 分桶定义（具体值根据训练模型给出）
     pinf = float('inf')  # 正无穷大
     ninf = float('-inf')  # 负无穷大
-    woex1 = [1.332, 1.202, 0.953, 0.845, 0.503, 0.216, 0.031, -0.363, -0.871, -1.702]
-    woex2 = [0.896, -0.47, -1.078, -1.616, -2.105, -4.266]
-    woex3 = [1.902, 1.227, 0.873, 0.771, 0.503, 0.215, 0.022, -0.394, -0.862, -1.784]
-    woex4 = [1.0, -0.098, -0.943, -1.772, -2.692, -3.759, -5.138]
-    woex5 = [0.552, -0.086, -0.573, -0.865, -1.345, -3.033]
-    woex6 = [0.691, -0.919, -0.999, -0.956, -0.646]
-    woex7 = [-0.609, -0.703, -0.521, -0.481, -0.139, 0.059, 0.359, 0.689, 1.315, 1.777]
-    woex8 = [-1.338, -1.316, -1.277, -0.962, -0.781, -0.609, -0.363, -0.261, -0.112, -0.076, 0.243, 1.219]
-    woex9 = [0.513, -0.717, -1.43, -1.04, -1.413, -1.256]
-    woex10 = [0.443, -0.981, -1.658, -2.221, -2.823, -3.33]
-    woex11 = [0.343, -1.502, -2.005, -2.372, -2.66, -2.883]
-    woex12 = [1.104, 0.044, -0.404, -0.896, -1.163, -1.872, -2.508]
-    woex13 = [0.712, -0.167, -0.338, -0.162, 0.212, 0.47]
-    cutx1 = [ninf, 891.102, 1409.628, 2165.43, 3167.068, 4656.48, 6886.692, 10651.84, 18862.02, 40665.782, pinf]
+    woex1 = [1.248, 1.196, 0.952, 0.745, 0.586, 0.363, 0.017, -0.337, -0.812, -1.839]
+    woex2 = [0.831, -0.553, -1.088, -1.573, -2.481, -5.379]
+    woex3 = [1.641, 1.242, 0.901, 0.784, 0.464, 0.242, 0.009, -0.34, -0.775, -1.885]
+    woex4 = [1.116, -0.054, -0.71, -1.493, -2.506, -3.988, -7.241]
+    woex5 = [0.946, 0.679, 0.25, -0.13, -0.707, -1.864]
+    woex6 = [1.235, -0.726, -1.053, -1.002, -0.688]
+    woex7 = [-0.856, -0.626, -0.399, -0.17, -0.044, 0.192, 0.36, 0.45, 0.83, 1.393]
+    woex8 = [-0.845, -0.891, -1.164, -1.09, -0.922, -0.791, -0.557, -0.479, -0.369, -0.354, -0.25, 1.156]
+    woex9 = [0.079, -0.669, -0.729, -0.764, -0.633, -0.799]
+    woex10 = [0.071, -0.863, -1.129, -1.893, -2.463, -3.042]
+    woex11 = [0.023, -1.081, -1.191, -1.274, -3.433]
+    woex12 = [1.169, 0.16, -0.183, -0.436, -0.705, -1.184, -2.472]
+
+    cutx1 = [ninf, 864.32, 1412.85, 2148.085, 3212.04, 4693.965, 6913.4, 10811.36, 18606.09, 38693.12, pinf]
     cutx2 = [ninf, 1, 3, 8, 12, 50, pinf]
-    cutx3 = [ninf, 6.0, 14.0, 27.0, 51.0, 85.0, 142.0, 244.0, 480.0, 1271.0, pinf]
+    cutx3 = [ninf, 4.0, 7.0, 13.0, 21.0, 34.0, 55.0, 94.0, 177.0, 431.0, pinf]
     cutx4 = [ninf, 60, 200, 700, 2000, 5000, 10000, pinf]
     cutx5 = [ninf, 3, 6, 12, 20, 50, pinf]
     cutx6 = [ninf, 0.005, 0.01, 0.015, 0.02, pinf]
-    cutx7 = [ninf, 20.073, 28.7217, 36.4717, 45.8384, 57.2259, 74.043, 98.3442, 141.3023, 254.55, pinf]
+    cutx7 = [ninf, 57.2475, 76.5477, 94.7068, 113.6604, 136.6316, 165.7038, 205.66, 269.2838, 399.2947, pinf]
     cutx8 = [ninf, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 13000, pinf]
     cutx9 = [ninf, 0.1, 0.2, 0.3, 0.4, 0.6, pinf]
     cutx10 = [ninf, 50, 100, 200, 400, 1000, pinf]
-    cutx11 = [ninf, 1, 2, 5, 10, 20, pinf]
+    cutx11 = [ninf, 1, 2, 5, 10, pinf]
     cutx12 = [ninf, 0.005, 0.01, 0.015, 0.02, 0.025, 0.05, pinf]
-    cutx13 = [ninf, 0.06, 0.1, 0.14, 0.2, 0.3, pinf]
     # 数据转化
     image_info_change = image_info.copy()
-    image_info_change['image_run_date_amount'] = change_woe(image_info_change['image_run_date_amount'], cutx1, woex1)
-    image_info_change['image_create_role_pay_num'] = change_woe(image_info_change['image_create_role_pay_num'], cutx2,
+    image_info_change['image_run_date_amount'] = change_woe(image_info_change['image_run_date_amount'], cutx1,
+                                                            woex1)
+    image_info_change['image_create_role_pay_num'] = change_woe(image_info_change['image_create_role_pay_num'],
+                                                                cutx2,
                                                                 woex2)
-    image_info_change['image_create_role_num'] = change_woe(image_info_change['image_create_role_num'], cutx3, woex3)
-    image_info_change['image_create_role_pay_sum'] = change_woe(image_info_change['image_create_role_pay_sum'], cutx4,
+    image_info_change['image_create_role_num'] = change_woe(image_info_change['image_create_role_num'], cutx3,
+                                                            woex3)
+    image_info_change['image_create_role_pay_sum'] = change_woe(image_info_change['image_create_role_pay_sum'],
+                                                                cutx4,
                                                                 woex4)
     image_info_change['image_source_num'] = change_woe(image_info_change['image_source_num'], cutx5, woex5)
-    image_info_change['image_create_role_pay_rate'] = change_woe(image_info_change['image_create_role_pay_rate'], cutx6,
+    image_info_change['image_create_role_pay_rate'] = change_woe(image_info_change['image_create_role_pay_rate'],
+                                                                 cutx6,
                                                                  woex6)
-    image_info_change['image_create_role_cost'] = change_woe(image_info_change['image_create_role_cost'], cutx7, woex7)
-    image_info_change['image_create_role_pay_cost'] = change_woe(image_info_change['image_create_role_pay_cost'], cutx8,
+    image_info_change['image_create_role_cost'] = change_woe(image_info_change['image_create_role_cost'], cutx7,
+                                                             woex7)
+    image_info_change['image_create_role_pay_cost'] = change_woe(image_info_change['image_create_role_pay_cost'],
+                                                                 cutx8,
                                                                  woex8)
     image_info_change['image_valid_source_rate'] = change_woe(image_info_change['image_valid_source_rate'], cutx9,
                                                               woex9)
-    image_info_change['image_pay_sum_ability'] = change_woe(image_info_change['image_pay_sum_ability'], cutx10, woex10)
-    image_info_change['image_pay_num_ability'] = change_woe(image_info_change['image_pay_num_ability'], cutx11, woex11)
-    image_info_change['image_create_role_roi'] = change_woe(image_info_change['image_create_role_roi'], cutx12, woex12)
+    image_info_change['image_pay_sum_ability'] = change_woe(image_info_change['image_pay_sum_ability'], cutx10,
+                                                            woex10)
+    image_info_change['image_pay_num_ability'] = change_woe(image_info_change['image_pay_num_ability'], cutx11,
+                                                            woex11)
+    image_info_change['image_create_role_roi'] = change_woe(image_info_change['image_create_role_roi'], cutx12,
+                                                            woex12)
 
     select_feature = ['image_run_date_amount', 'image_create_role_pay_num',
-                            'image_create_role_num', 'image_create_role_pay_sum',
-                            'image_source_num', 'image_create_role_pay_rate',
-                            'image_create_role_cost', 'image_create_role_pay_cost',
-                            'image_valid_source_rate',
-                            'image_pay_sum_ability', 'image_pay_num_ability',
-                            'image_create_role_roi']
+                      'image_create_role_num', 'image_create_role_pay_sum',
+                      'image_source_num', 'image_create_role_pay_rate',
+                      'image_create_role_cost', 'image_create_role_pay_cost',
+                      'image_valid_source_rate',
+                      'image_pay_sum_ability', 'image_pay_num_ability',
+                      'image_create_role_roi']
 
     # 概率预测与分数计算
     feature = image_info_change[select_feature]
@@ -537,16 +547,17 @@ def image_score():
     temp = image_info_change[['image_id', 'media_id', 'score']]
     image_info = pd.merge(image_info, temp, on=['image_id', 'media_id'], how='left')
     image_info = image_info[['image_id', 'image_name', 'image_run_date_amount', 'image_create_role_pay_num',
-                               'image_create_role_num', 'image_create_role_pay_sum',
-                               'image_source_num', 'image_create_role_pay_rate',
-                               'image_create_role_cost', 'image_create_role_pay_cost',
-                               'image_valid_source_num', 'image_valid_source_rate',
-                               'image_pay_sum_ability', 'image_pay_num_ability',
-                               'image_create_role_roi', 'image_create_role_retain_1d', 'model_run_datetime',
-                               'data_win', 'score', 'image_launch_time', 'image_source_total_num', 'media_id',
-                               'label_ids']]
+                             'image_create_role_num', 'image_create_role_pay_sum',
+                             'image_source_num', 'image_create_role_pay_rate',
+                             'image_create_role_cost', 'image_create_role_pay_cost',
+                             'image_valid_source_num', 'image_valid_source_rate',
+                             'image_pay_sum_ability', 'image_pay_num_ability',
+                             'image_create_role_roi', 'image_create_role_retain_1d', 'model_run_datetime',
+                             'data_win', 'score', 'image_launch_time', 'image_source_total_num', 'media_id',
+                             'label_ids']]
+    # 合并媒体（广点通+头条）
     image_info['label_ids'] = image_info['label_ids'].str.replace(',', ';')
     # 数据导出
-    image_info.to_csv('./image_info_sorce.csv', index=0, encoding='utf_8_sig',header=None)
+    image_info.to_csv('./image_info_sorce.csv', index=0, encoding='utf_8_sig', header=None)
 
 
