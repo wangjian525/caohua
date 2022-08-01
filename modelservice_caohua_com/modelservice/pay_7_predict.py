@@ -186,11 +186,16 @@ def do_posprocess(role_info, mgame_id):
         mapping = {1:1.48, 2:1.28, 3:1.23, 4:1.18, 5:1.16, 6:1.11}  # 7日真实:预测的经验比例系数（偏小一点）
     elif mgame_id == 1136:
         mapping = {1:1.48, 2:1.34, 3:1.19, 4:1.17, 5:1.13, 6:1.09}  # 7日真实:预测的经验比例系数（偏小一点）
+    elif mgame_id == 1051:
+        mapping = {1:1.46, 2:1.34, 3:1.28, 4:1.22, 5:1.18, 6:1.15}  # 7日真实:预测的经验比例系数（偏小一点）
     role_info['mapping'] = role_info['created_role_day'].map(mapping)
     role_info['pay_7_pred'] = np.maximum(role_info['pay_7_pred'] * role_info['mapping'], role_info['pay_sum'] * role_info['mapping'])  # TODO:预测值和真实值的经验比例调整
     
     # 规则三
-    mapping = {1:3.6, 2:2.8, 3:2.2, 4:1.8, 5:1.6, 6:1.4}  # 7日真实:N日真实的经验比例系数上限（偏大一点）
+    if mgame_id != 1051:
+        mapping = {1:3.6, 2:2.8, 3:2.2, 4:1.8, 5:1.6, 6:1.4}  # 7日真实:N日真实的经验比例系数上限（偏大一点）
+    else:
+        mapping = {1:2.2, 2:1.7, 3:1.3, 4:1.12, 5:1.1, 6:1.08}  # 7日真实:N日真实的经验比例系数上限（偏大一点）
     role_info['mapping'] = role_info['created_role_day'].map(mapping)
     tmp = role_info[role_info['pay_7_pred'] > role_info['pay_sum'] * role_info['mapping']]
     role_info.loc[role_info['pay_7_pred'] > role_info['pay_sum'] * role_info['mapping'], 'pay_7_pred'] = tmp['pay_sum'] * tmp['mapping']  # TODO:N日真实和7日真实的经验比例调整
@@ -225,6 +230,8 @@ def do_preprocess(role_info, mgame_id):
         CLIP = {'login_num':(1,50),'max_role_level':(1,100),'online_time':(100,50000)}
     elif mgame_id == 1136:
         CLIP = {'login_num':(1,100),'max_role_level':(1,10),'online_time':(100,20000)}
+    elif mgame_id == 1051:
+        CLIP = {'login_num':(1,20),'max_role_level':(1,100),'online_time':(100,20000)}
     # 截断
     role_info['login_num'] = np.clip(role_info['login_num'],CLIP['login_num'][0],CLIP['login_num'][1])
     role_info['max_role_level'] = np.clip(role_info['max_role_level'],CLIP['max_role_level'][0],CLIP['max_role_level'][1])
@@ -263,7 +270,8 @@ def do_preprocess(role_info, mgame_id):
                     '2021-10-01','2021-10-02','2021-10-03','2021-10-04','2021-10-05',
                     '2022-01-31','2022-02-01','2022-02-02','2022-02-03','2022-02-04','2022-02-05','2022-02-06',
                     '2022-04-03','2022-04-04','2022-04-05',
-                    '2022-04-30','2022-05-01','2022-05-02','2022-05-03','2022-05-04']
+                    '2022-04-30','2022-05-01','2022-05-02','2022-05-03','2022-05-04',
+                    '2022-06-03','2022-06-04','2022-06-05']
         df['timestamp'] = df[col].dt.date.apply(lambda x:str(x))
         df['is_holidays'] = (df['timestamp'].isin(holidays)).astype(int)
         df.drop(['timestamp'], axis=1, inplace=True)

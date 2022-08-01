@@ -24,3 +24,4 @@ from modelservice.create_plan_gdt_dg_ios import CreatePlangdtdgIOS
 from modelservice.nmi import CalculateNmi
 from modelservice.pay_7_predict import Pay7Predict
 from modelservice.recommended_amount import RecommendedAmount
+from modelservice.consumption import Consumption

@@ -23,6 +23,7 @@ from modelservice import CreatePlangdtdgIOS
 from modelservice import CalculateNmi
 from modelservice import Pay7Predict
 from modelservice import RecommendedAmount
+from modelservice import Consumption
 #
 # 初始化全局日志配置
 #
@@ -77,7 +78,8 @@ urls = (
     '/CreatePlangdtdgIOS', CreatePlangdtdgIOS,
     '/CalculateNmi', CalculateNmi,
     '/Pred7Pay', Pay7Predict,
-    '/RecommendedAmount', RecommendedAmount
+    '/RecommendedAmount', RecommendedAmount,
+    '/Consumption', Consumption
 )
 
 #

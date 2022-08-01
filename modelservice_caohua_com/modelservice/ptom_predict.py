@@ -164,6 +164,10 @@ class PtomPredict:
             data = reload_model()
         elif "source_predict_state_2" == action:
             data = source_predict_state_2(json_data)
+        elif "source_predict_state_1_mr_bd" == action:      ## TODO：末日百度模型1
+            data = source_predict_state_1_mr_bd(json_data)
+        elif "mr_source_predict_state_2_bd" == action:      ## TODO：末日百度模型2
+            data = mr_source_predict_state_2_bd(json_data)
         elif "dg_source_predict_state_1" == action:
             data = dg_source_predict_state_1(json_data)
         elif "dg_source_predict_state_2" == action:
@@ -184,6 +188,10 @@ class PtomPredict:
             data = jp_source_predict_state_1_gdt(json_data)  ## TODO
         elif "jp_source_predict_state_2_gdt" == action:  ## TODO：金牌模型2（广点通）
             data = jp_source_predict_state_2_gdt(json_data)  ## TODO
+        elif "source_predict_state_1_jp_bd" == action:  ## TODO：金牌模型1（百度）
+            data = source_predict_state_1_jp_bd(json_data)  ## TODO
+        elif "source_predict_state_2_jp_bd" == action:  ## TODO：金牌模型2（百度）
+            data = source_predict_state_2_jp_bd(json_data)  ## TODO
         elif "qx_source_predict_state_2" == action:
             data = qx_source_predict_state_2(json_data)
         elif "qx_source_predict_state_2_gdt" == action:
@@ -650,6 +658,224 @@ def source_predict_state_1(jsondata):
             result_df = result_df.append(data_10_ios)
         result_df['budget'] = result_df['budget'].replace(np.nan, 'None')
         result_df['label'] = result_df['label'].astype(int)
+        result_df = result_df.fillna('null')
+    else:
+        result_df = pd.DataFrame(columns=["channel_id", "source_id", "plan_name", "model_run_datetime", "create_time",
+                                          "media_id", "game_id", "platform", "source_run_date_amount",
+                                          "create_role_num", "create_role_cost",
+                                          "create_role_pay_num", "create_role_pay_cost", "create_role_pay_sum",
+                                          "create_role_roi", "create_role_pay_rate", "create_role_pay_num_cum",
+                                          "learning_type", "learning_time_dt", "learning_time_hr", "deep_bid_type",
+                                          "label", "budget"], data=[])
+    return {"columns": result_df.columns.values.tolist(), "list": result_df.values.tolist()}
+
+
+# 末日百度模型1
+def source_predict_state_1_mr_bd(jsondata):
+    '''
+    :param jsondata: {"columns": ["channel_id","source_id","plan_name", "model_run_datetime","create_time","media_id",
+    "game_id","platform","source_run_date_amount","create_role_num","create_role_cost","create_role_pay_num",
+    "create_role_pay_cost","create_role_pay_sum","create_role_roi","create_role_pay_rate","create_role_pay_num_cum",
+    "learning_type","learning_time_dt","learning_time_hr","deep_bid_type"]}
+    :return:'label','budget'
+    '''
+
+    # 该模型只能接受计划状态plan_run_state=1且data_win=0 且media_id=45 且 model_run_datetime 等于当日的数据，即只接受当日广点通实时数据
+    # label为1时关计划，为0时开计划，如果模型输出label结果与计划当前状况（开/关）相同，则不操作。例如，计划当前是关停状况，当模型输出为1时，不操作
+
+    # 早上7：55分，将所有在运行的计划状态plan_run_state改为2。调用模型2进行判断，是否达标。达标则状态改为1，开计划，预算由模型1计算决定。不达标，则为关停状态，且plan_run_state为2
+
+    data = pd.DataFrame(data=jsondata['data'], columns=jsondata['columns'])
+    data = data[data['media_id'] == 45]
+    # 数据预处理
+    data = data[data['source_run_date_amount'] > 0]  # 删除消耗为0的数据
+
+    # 对消耗300元以下的不作判断，对数据按平台、win进行分类处理
+    data_not_ignore = data[data['source_run_date_amount'] >= 300]
+
+    data_win_0 = data_not_ignore[data_not_ignore['platform'] == 1]
+    data_win_0_ios = data_not_ignore[data_not_ignore['platform'] == 2]
+
+    result_df = pd.DataFrame()
+
+    # 获取近15天平均创角成本
+    def get_an_cost():
+        conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                               passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
+        cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
+        sql = '''
+                SELECT
+                    sum( amount ) / sum( create_role_num ) AS cost 
+                FROM
+                    db_stdata.st_lauch_report 
+                WHERE
+                    tdate_type = 'day' 
+                    AND tdate >= DATE_SUB( date( NOW()), INTERVAL 15 DAY ) 
+                    AND media_id = 45 
+                    AND platform = 1 
+                    AND game_id IN (
+                    SELECT
+                        dev_game_id AS game_id 
+                    FROM
+                        db_data.t_game_config 
+                    WHERE
+                        game_id = 1056 
+                    AND dev_game_id IS NOT NULL 
+                    )
+        '''
+        cur.execute(sql)
+        result_df = pd.read_sql(sql, conn)
+        cur.close()
+        conn.close()
+        try:
+            result = int(result_df['cost'].values)
+        except:
+            result = 40
+        return result
+
+    def get_ios_cost():
+        conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                               passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
+        cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
+        sql = '''
+                SELECT
+                    sum( amount ) / sum( create_role_num ) AS cost 
+                FROM
+                    db_stdata.st_lauch_report 
+                WHERE
+                    tdate_type = 'day' 
+                    AND tdate >= DATE_SUB( date( NOW()), INTERVAL 15 DAY ) 
+                    AND media_id = 45 
+                    AND platform = 2 
+                    AND game_id IN (
+                    SELECT
+                        dev_game_id AS game_id 
+                    FROM
+                        db_data.t_game_config 
+                    WHERE
+                        game_id = 1056 
+                    AND dev_game_id IS NOT NULL 
+                    )
+        '''
+        cur.execute(sql)
+        result_df = pd.read_sql(sql, conn)
+        cur.close()
+        conn.close()
+        try:
+            result = int(result_df['cost'].values)
+        except:
+            result = 120
+        return result
+    # 获取该游戏该媒体的双端创角成本
+    cost_an = get_an_cost()
+    cost_ios = get_ios_cost()
+
+    # 1:关; 0:开； 2：保持原状
+    # win=0预判
+    if data_win_0.shape[0] != 0:
+        data_win_0_1 = data_win_0[data_win_0['source_run_date_amount'] <= 5000]
+        data_win_0_2 = data_win_0[(data_win_0['source_run_date_amount'] > 5000) & (data_win_0['source_run_date_amount'] <= 12000)]
+        data_win_0_3 = data_win_0[(data_win_0['source_run_date_amount'] > 12000) & (data_win_0['source_run_date_amount'] <= 22000)]
+        data_win_0_4 = data_win_0[(data_win_0['source_run_date_amount'] > 22000) & (data_win_0['source_run_date_amount'] <= 50000)]
+        data_win_0_5 = data_win_0[data_win_0['source_run_date_amount'] > 50000]
+        if data_win_0_1.shape[0] != 0:
+            data_win_0_1['label'] = data_win_0_1.apply(
+                lambda x: 1 if (((x.create_role_cost >= 2.5 * cost_an) & (x.source_run_date_amount <= 800) & (x.create_role_pay_sum == 0)) |
+                                ((x.create_role_cost >= 3.5 * cost_an) & (x.source_run_date_amount <= 800) & (x.create_role_pay_sum != 0)) |
+                                ((x.create_role_cost >= 2 * cost_an) & (x.source_run_date_amount > 800) & (x.create_role_pay_sum == 0)) |
+                                ((x.create_role_cost >= 2.5 * cost_an) & (x.source_run_date_amount > 800) & (x.create_role_pay_sum != 0)) |
+                                ((x.create_role_roi < 0.018) & (x.source_run_date_amount >= 3500))) else (0
+                             if ((( x.create_role_cost <= (2.5 * cost_an - 10)) & (x.source_run_date_amount <= 800) & (x.create_role_pay_sum == 0)) |
+                                 (( x.create_role_cost <= (3.5 * cost_an - 10)) & (x.source_run_date_amount <= 800) & (x.create_role_pay_sum != 0)) |
+                                 (( x.create_role_cost <= (2 * cost_an - 10)) & (x.source_run_date_amount > 800) & (x.create_role_pay_sum == 0)) |
+                                 (( x.create_role_cost <= (2.5 * cost_an - 10)) & (x.source_run_date_amount > 800) & (x.create_role_pay_sum != 0)) |
+                                 (x.create_role_roi >= 0.018)) else 2), axis=1)
+
+            result_df = result_df.append(data_win_0_1)
+
+        if data_win_0_2.shape[0] != 0:
+            data_win_0_2['label'] = data_win_0_2.apply(
+                lambda x: 1 if (x.create_role_cost >= 3 * cost_an)
+                        else (1 if (x.create_role_roi <= 0.019) | (x.create_role_pay_cost >= 6000)
+                              else (0 if (x.create_role_roi >= 0.02) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_2)
+
+        if data_win_0_3.shape[0] != 0:
+            data_win_0_3['label'] = data_win_0_3.apply(
+                lambda x: 1 if (x.create_role_cost >= 3 * cost_an)
+                        else (1 if (x.create_role_roi <= 0.019) | (x.create_role_pay_cost >= 6000)
+                              else (0 if (x.create_role_roi >= 0.02) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_3)
+
+        if data_win_0_4.shape[0] != 0:
+            data_win_0_4['label'] = data_win_0_4.apply(
+                lambda x: 1 if (x.create_role_cost >= 2.8 * cost_an)
+                        else (1 if (x.create_role_roi <= 0.019) | (x.create_role_pay_cost >= 6000)
+                              else (0 if (x.create_role_roi >= 0.02) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_4)
+
+        if data_win_0_5.shape[0] != 0:
+            data_win_0_5['label'] = data_win_0_5.apply(
+                lambda x: 1 if (x.create_role_cost >= 2.8 * cost_an)
+                        else (1 if (x.create_role_roi <= 0.019) | (x.create_role_pay_cost >= 6000)
+                              else (0 if (x.create_role_roi >= 0.02) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_5)
+
+    # ISO
+    if data_win_0_ios.shape[0] != 0:
+        data_win_0_ios_1 = data_win_0_ios[data_win_0_ios['source_run_date_amount'] <= 8000]
+        data_win_0_ios_2 = data_win_0_ios[
+            (data_win_0_ios['source_run_date_amount'] > 8000) & (data_win_0_ios['source_run_date_amount'] <= 14000)]
+        data_win_0_ios_3 = data_win_0_ios[
+            (data_win_0_ios['source_run_date_amount'] > 14000) & (data_win_0_ios['source_run_date_amount'] <= 28000)]
+        data_win_0_ios_4 = data_win_0_ios[
+            (data_win_0_ios['source_run_date_amount'] > 28000) & (data_win_0_ios['source_run_date_amount'] <= 48000)]
+        data_win_0_ios_5 = data_win_0_ios[data_win_0_ios['source_run_date_amount'] > 48000]
+        if data_win_0_ios_1.shape[0] != 0:
+            data_win_0_ios_1['label'] = data_win_0_ios_1.apply(
+                lambda x: 1 if (((x.create_role_cost >= 2.5 * cost_ios) & (x.source_run_date_amount <= 1500) & (x.create_role_pay_sum == 0)) |
+                                ((x.create_role_cost >= 3.5 * cost_ios) & (x.source_run_date_amount <= 1500) & (x.create_role_pay_sum != 0)) |
+                                ((x.create_role_cost >= 2 * cost_ios) & (x.source_run_date_amount > 1500) & (x.create_role_pay_sum == 0)) |
+                                ((x.create_role_cost >= 2.5 * cost_ios) & (x.source_run_date_amount > 1500) & (x.create_role_pay_sum != 0)) |
+                                ((x.create_role_roi < 0.015) & (x.source_run_date_amount >= 5000))) else (0
+                          if (((x.create_role_cost <= (2.5 * cost_ios - 10)) & (x.source_run_date_amount <= 1300) & (x.create_role_pay_sum == 0)) |
+                              ((x.create_role_cost <= (2.5 * cost_ios - 10)) & (x.source_run_date_amount <= 1300) & (x.create_role_pay_sum != 0)) |
+                              ((x.create_role_cost <= (2.5 * cost_ios - 10)) & (x.source_run_date_amount > 1300) & (x.create_role_pay_sum == 0)) |
+                              ((x.create_role_cost <= (2.5 * cost_ios - 10)) & (x.source_run_date_amount > 1300) & (x.create_role_pay_sum != 0)) |
+                              (x.create_role_roi >= 0.015)) else 2), axis=1)
+
+            result_df = result_df.append(data_win_0_ios_1)
+
+        if data_win_0_ios_2.shape[0] != 0:
+            data_win_0_ios_2['label'] = data_win_0_ios_2.apply(
+                lambda x: 1 if (x.create_role_cost >= 3 * cost_ios)
+                        else (1 if (x.create_role_roi <= 0.019) | (x.create_role_pay_cost >= 7000)
+                              else (0 if (x.create_role_roi >= 0.02) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_ios_2)
+
+        if data_win_0_ios_3.shape[0] != 0:
+            data_win_0_ios_3['label'] = data_win_0_ios_3.apply(
+                lambda x: 1 if (x.create_role_cost >= 3 * cost_ios)
+                        else (1 if (x.create_role_roi <= 0.019) | (x.create_role_pay_cost >= 7000)
+                              else (0 if (x.create_role_roi >= 0.02) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_ios_3)
+
+        if data_win_0_ios_4.shape[0] != 0:
+            data_win_0_ios_4['label'] = data_win_0_ios_4.apply(
+                lambda x: 1 if (x.create_role_cost >= 2.8 * cost_ios)
+                        else (1 if (x.create_role_roi <= 0.019) | (x.create_role_pay_cost >= 7000)
+                              else (0 if (x.create_role_roi >= 0.02) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_ios_4)
+
+        if data_win_0_ios_5.shape[0] != 0:
+            data_win_0_ios_5['label'] = data_win_0_ios_5.apply(
+                lambda x: 1 if (x.create_role_cost >= 2.8 * cost_ios)
+                        else (1 if (x.create_role_roi <= 0.019) | (x.create_role_pay_cost >= 7000)
+                              else (0 if (x.create_role_roi >= 0.02) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_ios_5)
+    if result_df.shape[0] != 0:
+        result_df['label'] = result_df['label'].astype(int)
+        result_df['budget'] = 'None'
         result_df = result_df.fillna('null')
     else:
         result_df = pd.DataFrame(columns=["channel_id", "source_id", "plan_name", "model_run_datetime", "create_time",
@@ -1179,6 +1405,137 @@ def source_predict_state_2(jsondata):
 
     return {"columns": source_predict.columns.values.tolist(), "list": source_predict.values.tolist()}
 
+
+# 末日百度模型2
+def mr_source_predict_state_2_bd(jsondata):
+    '''
+    :param jsondata: {"columns": ["channel_id","source_id","plan_name","model_run_datetime","create_time",
+    "media_id","game_id","platform","data_win","source_run_date_amount","create_role_num",
+    "create_role_cost","create_role_pay_num","create_role_pay_cost","create_role_pay_sum","create_role_roi",
+    "create_role_retain_1d","create_role_pay_rate","create_role_pay_num_cum","learning_type","learning_time_dt",
+    "learning_time_hr","deep_bid_type","cum_amount","cum_day","cum_role_cost"]}
+    :return:
+    '''
+    data = pd.DataFrame(data=jsondata['data'], columns=jsondata['columns'])
+
+    # 数据预处理
+    data = data[data['source_run_date_amount'] > 0]  # 删除消耗为0的数据
+    # 去重，处理某天没有消耗的情况
+    data.sort_values(by='data_win', inplace=True)
+    data.drop_duplicates(subset=['channel_id', 'source_id', 'source_run_date_amount', 'create_role_num'], keep='first'
+                         , inplace=True)
+
+    # 计划7天内总消耗不足一定额度，且总成本合格的计划，让他继续跑，先不做判断
+    data_0 = data[(data['cum_amount'] >= 100) & (data['cum_amount'] <= 4000) & (data['cum_day'] <= 7) & (
+            data['cum_role_cost'] <= 100) & (data['platform'] == 1)]
+    data_1 = data[(data['cum_amount'] >= 100) & (data['cum_amount'] <= 5500) & (data['cum_day'] <= 7) & (
+            data['cum_role_cost'] <= 300) & (data['platform'] == 2)]
+    data_0 = data_0.append(data_1)
+    data_0['label'] = data_0['cum_amount'].apply(lambda x: 0)
+
+    data = data.drop(data_0.index).reset_index(drop=True)
+    # 对窗口期消耗200元以下的不作判断，对数据按平台、win进行分类处理
+    data_not_ignore = data[(data['source_run_date_amount'] >= 200) | (data['data_win'] == 1)]
+    data_ignore = data.drop(data_not_ignore.index)
+
+    # 对最近1日\2日 消耗过6000，且没有付费的计划进行强制关停 data_2
+    data_2 = data_not_ignore[
+        (data_not_ignore['data_win'] <= 2) & (data_not_ignore['source_run_date_amount'] >= 6000) & (
+                    data_not_ignore['create_role_roi'] == 0)]
+    data_not_ignore = data_not_ignore.drop(data_2.index)
+
+    # 对data_not_ignore进行周期筛选,1-3窗口期，保留最大周期
+    data_not_ignore = data_not_ignore[data_not_ignore['data_win'] <= 3]
+    data_not_ignore.sort_values('data_win', ascending=False, inplace=True)
+    data_not_ignore = data_not_ignore.drop_duplicates(['channel_id', 'source_id', 'model_run_datetime'], keep='first')
+
+    def get_source_data():
+        conn = connect(host=dicParam['HIVE_HOST'], port=int(dicParam['HIVE_PORT']), auth_mechanism=dicParam['HIVE_AUTH_MECHANISM'], user=dicParam['HIVE_USERNAME'],
+                       password=dicParam['HIVE_PASSWORD'], database=dicParam['HIVE_DATABASE'])
+        cursor = conn.cursor()
+        sql = '''
+            SELECT
+                channel_id,
+                source_id,
+                7_amount as amount_7,
+                7_roi as roi_7,
+                data_win 
+            FROM
+                tmp_data.tmp_ra_media_source 
+            WHERE
+                dt = `current_date` () 
+                AND mgame_id = 1056 
+                AND media_id = 45
+        '''
+        cursor.execute(sql)
+        result = as_pandas(cursor)
+
+        # 关闭链接
+        cursor.close()
+        conn.close()
+        return result
+
+    # 计划评分数据获取
+    source_data = get_source_data()
+    source_data_3 = source_data[source_data['data_win'] == 3]
+    source_data_7 = source_data[source_data['data_win'] == 7]
+
+    # 计划评分数据与源数据进行拼接
+    data_not_ignore = pd.merge(data_not_ignore, source_data_3.drop(['data_win'], axis=1),
+                               on=['channel_id', 'source_id'], how='left')
+    data_not_ignore = data_not_ignore.rename(columns={'amount_7': 'amount_3', 'roi_7': 'roi_3'})
+    data_not_ignore = pd.merge(data_not_ignore, source_data_7.drop(['data_win'], axis=1),
+                               on=['channel_id', 'source_id'], how='left')
+
+    # 依据3_roi和7_roi对计划进行判断是否关停
+    if data_not_ignore.shape[0] != 0:
+        data_not_ignore['label'] = data_not_ignore.apply(lambda x: 1 if (x.amount_3 >= 4000) & ((x.create_role_pay_cost >= 8000) | (x.create_role_roi == 0))
+                                                else (0 if x.roi_3 >= 0.04
+                                                      else (0 if (x.roi_3 >= 0.025) & (x.amount_3 <= 3500)
+                                                            else (0 if (x.roi_7 >= 0.08) & (x.roi_3 >= 0.02) else 1))), axis=1)
+        data_not_ignore.drop(['amount_3', 'roi_3', 'amount_7', 'roi_7'], axis=1, inplace=True)
+    else:
+        data_not_ignore = pd.DataFrame(
+            columns=["channel_id", "source_id", "plan_name", "model_run_datetime", "create_time",
+                     "media_id", "game_id", "platform", "data_win", "source_run_date_amount", "create_role_num",
+                     "create_role_cost", "create_role_pay_num", "create_role_pay_cost", "create_role_pay_sum",
+                     "create_role_roi",
+                     "create_role_retain_1d", "create_role_pay_rate", "create_role_pay_num_cum", "learning_type",
+                     "learning_time_dt",
+                     "learning_time_hr", "deep_bid_type", "cum_amount", "cum_day", "cum_role_cost", "label"])
+
+    if data_ignore.shape[0] != 0:
+        data_ignore['label'] = 1
+        data_ignore.sort_values('data_win', ascending=False, inplace=True)
+        data_ignore = data_ignore.drop_duplicates(['channel_id', 'source_id', 'model_run_datetime'], keep='first')
+        data_ignore['data_win'] = 9  # 9 代表是被ignore的计划，消耗太小
+
+    # 1\2日消耗过4000，充值为0，赋值为1，同时data_win变为-1，以便后续按datawin大小筛选优先级
+    if data_2.shape[0] != 0:
+        data_2['label'] = 1
+        data_2.sort_values('data_win', ascending=False, inplace=True)
+        data_2 = data_2.drop_duplicates(['channel_id', 'source_id', 'model_run_datetime'], keep='first')
+        data_2['data_win'] = -1  # -1 代表是被data_0的计划，累积消耗太小
+
+    # 7天内总消耗不足，成本合格的计划，直接开计划，账值为0，同时data_win变为-2，以便后续按datawin大小筛选优先级
+    if data_0.shape[0] != 0:
+        data_0.sort_values('data_win', ascending=False, inplace=True)
+        data_0 = data_0.drop_duplicates(['channel_id', 'source_id', 'model_run_datetime'], keep='first')
+        data_0['data_win'] = -2  # -1 代表是被data_0的计划，累积消耗太小
+
+    source_predict = pd.concat([data_not_ignore, data_ignore], axis=0)
+    source_predict = pd.concat([source_predict, data_0], axis=0)
+    source_predict = pd.concat([source_predict, data_2], axis=0)
+
+    # 综合结果优先级： data_0   data_2  大于 data   大于  data_ignore
+    source_predict.sort_values('data_win', ascending=True, inplace=True)
+    source_predict = source_predict.drop_duplicates(['channel_id', 'source_id', 'model_run_datetime'], keep='first')
+    #     print(source_predict.head())
+    source_predict['label'] = source_predict['label'].astype(int)
+    # print(source_predict.columns.values.tolist())
+    source_predict = source_predict.fillna('null')
+
+    return {"columns": source_predict.columns.values.tolist(), "list": source_predict.values.tolist()}
 
 
 """
@@ -5659,6 +6016,448 @@ def jp_source_predict_state_2(jsondata, ):
     # print(source_predict.columns.values.tolist())
     source_predict = source_predict.fillna('null')
     return {"columns": source_predict.columns.values.tolist(), "list": source_predict.values.tolist()}
+
+
+# 金牌百度模型1
+def source_predict_state_1_jp_bd(jsondata):
+    '''
+    :param jsondata: {"columns": ["channel_id","source_id","plan_name", "model_run_datetime","create_time","media_id",
+    "game_id","platform","source_run_date_amount","create_role_num","create_role_cost","create_role_pay_num",
+    "create_role_pay_cost","create_role_pay_sum","create_role_roi","create_role_pay_rate","create_role_pay_num_cum",
+    "learning_type","learning_time_dt","learning_time_hr","deep_bid_type"]}
+    :return:'label','budget'
+    '''
+
+    # 该模型只能接受计划状态plan_run_state=1且data_win=0 且media_id=45 且 model_run_datetime 等于当日的数据，即只接受当日广点通实时数据
+    # label为1时关计划，为0时开计划，如果模型输出label结果与计划当前状况（开/关）相同，则不操作。例如，计划当前是关停状况，当模型输出为1时，不操作
+
+    # 早上7：55分，将所有在运行的计划状态plan_run_state改为2。调用模型2进行判断，是否达标。达标则状态改为1，开计划，预算由模型1计算决定。不达标，则为关停状态，且plan_run_state为2
+
+    data = pd.DataFrame(data=jsondata['data'], columns=jsondata['columns'])
+    data = data[data['media_id'] == 45]
+    # 数据预处理
+    data = data[data['source_run_date_amount'] > 0]  # 删除消耗为0的数据
+
+    # 对消耗300元以下的不作判断，对数据按平台、win进行分类处理
+    data_not_ignore = data[data['source_run_date_amount'] >= 300]
+
+    data_win_0 = data_not_ignore[data_not_ignore['platform'] == 1]
+    data_win_0_ios = data_not_ignore[data_not_ignore['platform'] == 2]
+
+    result_df = pd.DataFrame()
+
+    # 获取近15天平均创角成本
+    def get_an_cost():
+        conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                               passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
+        cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
+        sql = '''
+                SELECT
+                    sum( amount ) / sum( create_role_num ) AS cost 
+                FROM
+                    db_stdata.st_lauch_report 
+                WHERE
+                    tdate_type = 'day' 
+                    AND tdate >= DATE_SUB( date( NOW()), INTERVAL 15 DAY ) 
+                    AND media_id = 45 
+                    AND platform = 1 
+                    AND game_id IN (
+                    SELECT
+                        dev_game_id AS game_id 
+                    FROM
+                        db_data.t_game_config 
+                    WHERE
+                        game_id = 1051 
+                    AND dev_game_id IS NOT NULL 
+                    )
+        '''
+        cur.execute(sql)
+        result_df = pd.read_sql(sql, conn)
+        cur.close()
+        conn.close()
+        try:
+            result = int(result_df['cost'].values)
+        except:
+            result = 45
+        return result
+
+    def get_ios_cost():
+        conn = pymysql.connect(host=dicParam['DB_SLAVE_FENXI_HOST'], port=int(dicParam['DB_SLAVE_FENXI_PORT']), user=dicParam['DB_SLAVE_FENXI_USERNAME'],
+                               passwd=dicParam['DB_SLAVE_FENXI_PASSWORD'])
+        cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
+        sql = '''
+                SELECT
+                    sum( amount ) / sum( create_role_num ) AS cost 
+                FROM
+                    db_stdata.st_lauch_report 
+                WHERE
+                    tdate_type = 'day' 
+                    AND tdate >= DATE_SUB( date( NOW()), INTERVAL 15 DAY ) 
+                    AND media_id = 45 
+                    AND platform = 2 
+                    AND game_id IN (
+                    SELECT
+                        dev_game_id AS game_id 
+                    FROM
+                        db_data.t_game_config 
+                    WHERE
+                        game_id = 1051 
+                    AND dev_game_id IS NOT NULL 
+                    )
+        '''
+        cur.execute(sql)
+        result_df = pd.read_sql(sql, conn)
+        cur.close()
+        conn.close()
+        try:
+            result = int(result_df['cost'].values)
+        except:
+            result = 120
+        return result
+    # 获取该游戏该媒体的双端创角成本
+    cost_an = get_an_cost()
+    cost_ios = get_ios_cost()
+
+    # 1:关; 0:开； 2：保持原状
+    # win=0预判
+    if data_win_0.shape[0] != 0:
+        data_win_0_1 = data_win_0[data_win_0['source_run_date_amount'] <= 3000]
+        data_win_0_2 = data_win_0[(data_win_0['source_run_date_amount'] > 3000) & (data_win_0['source_run_date_amount'] <= 9000)]
+        data_win_0_3 = data_win_0[(data_win_0['source_run_date_amount'] > 9000) & (data_win_0['source_run_date_amount'] <= 18000)]
+        data_win_0_4 = data_win_0[(data_win_0['source_run_date_amount'] > 18000) & (data_win_0['source_run_date_amount'] <= 40000)]
+        data_win_0_5 = data_win_0[data_win_0['source_run_date_amount'] > 40000]
+        if data_win_0_1.shape[0] != 0:
+            data_win_0_1['label'] = data_win_0_1.apply(
+                lambda x: 1 if (((x.create_role_cost >= 2.5 * cost_an) & (x.source_run_date_amount <= 800) & (x.create_role_pay_sum == 0)) |
+                                ((x.create_role_cost >= 3.5 * cost_an) & (x.source_run_date_amount <= 800) & (x.create_role_pay_sum != 0)) |
+                                ((x.create_role_cost >= 2 * cost_an) & (x.source_run_date_amount > 800) & (x.create_role_pay_sum == 0)) |
+                                ((x.create_role_cost >= 2.5 * cost_an) & (x.source_run_date_amount > 800) & (x.create_role_pay_sum != 0)) |
+                                ((x.create_role_roi < 0.035) & (x.source_run_date_amount >= 2000))) else (0
+                             if ((( x.create_role_cost <= (2.5 * cost_an - 10)) & (x.source_run_date_amount <= 800) & (x.create_role_pay_sum == 0)) |
+                                 (( x.create_role_cost <= (3.5 * cost_an - 10)) & (x.source_run_date_amount <= 800) & (x.create_role_pay_sum != 0)) |
+                                 (( x.create_role_cost <= (2 * cost_an - 10)) & (x.source_run_date_amount > 800) & (x.create_role_pay_sum == 0)) |
+                                 (( x.create_role_cost <= (2.5 * cost_an - 10)) & (x.source_run_date_amount > 800) & (x.create_role_pay_sum != 0)) |
+                                 (x.create_role_roi >= 0.035)) else 2), axis=1)
+
+            result_df = result_df.append(data_win_0_1)
+
+        if data_win_0_2.shape[0] != 0:
+            data_win_0_2['label'] = data_win_0_2.apply(
+                lambda x: 1 if (x.create_role_cost >= 3 * cost_an)
+                        else (1 if (x.create_role_roi <= 0.035) | (x.create_role_pay_cost >= 2000)
+                              else (0 if (x.create_role_roi >= 0.036) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_2)
+
+        if data_win_0_3.shape[0] != 0:
+            data_win_0_3['label'] = data_win_0_3.apply(
+                lambda x: 1 if (x.create_role_cost >= 3 * cost_an)
+                        else (1 if (x.create_role_roi <= 0.035) | (x.create_role_pay_cost >= 2000)
+                              else (0 if (x.create_role_roi >= 0.036) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_3)
+
+        if data_win_0_4.shape[0] != 0:
+            data_win_0_4['label'] = data_win_0_4.apply(
+                lambda x: 1 if (x.create_role_cost >= 2.8 * cost_an)
+                        else (1 if (x.create_role_roi <= 0.035) | (x.create_role_pay_cost >= 1800)
+                              else (0 if (x.create_role_roi >= 0.036) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_4)
+
+        if data_win_0_5.shape[0] != 0:
+            data_win_0_5['label'] = data_win_0_5.apply(
+                lambda x: 1 if (x.create_role_cost >= 2.8 * cost_an)
+                        else (1 if (x.create_role_roi <= 0.04) | (x.create_role_pay_cost >= 1500)
+                              else (0 if (x.create_role_roi >= 0.041) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_5)
+
+    # ISO
+    if data_win_0_ios.shape[0] != 0:
+        data_win_0_ios_1 = data_win_0_ios[data_win_0_ios['source_run_date_amount'] <= 6000]
+        data_win_0_ios_2 = data_win_0_ios[
+            (data_win_0_ios['source_run_date_amount'] > 6000) & (data_win_0_ios['source_run_date_amount'] <= 14000)]
+        data_win_0_ios_3 = data_win_0_ios[
+            (data_win_0_ios['source_run_date_amount'] > 14000) & (data_win_0_ios['source_run_date_amount'] <= 28000)]
+        data_win_0_ios_4 = data_win_0_ios[
+            (data_win_0_ios['source_run_date_amount'] > 28000) & (data_win_0_ios['source_run_date_amount'] <= 48000)]
+        data_win_0_ios_5 = data_win_0_ios[data_win_0_ios['source_run_date_amount'] > 48000]
+        if data_win_0_ios_1.shape[0] != 0:
+            data_win_0_ios_1['label'] = data_win_0_ios_1.apply(
+                lambda x: 1 if (((x.create_role_cost >= 2.5 * cost_ios) & (x.source_run_date_amount <= 1500) & (x.create_role_pay_sum == 0)) |
+                                ((x.create_role_cost >= 3.5 * cost_ios) & (x.source_run_date_amount <= 1500) & (x.create_role_pay_sum != 0)) |
+                                ((x.create_role_cost >= 2 * cost_ios) & (x.source_run_date_amount > 1500) & (x.create_role_pay_sum == 0)) |
+                                ((x.create_role_cost >= 2.5 * cost_ios) & (x.source_run_date_amount > 1500) & (x.create_role_pay_sum != 0)) |
+                                ((x.create_role_roi < 0.03) & (x.source_run_date_amount >= 4000))) else (0
+                          if (((x.create_role_cost <= (2.5 * cost_ios - 10)) & (x.source_run_date_amount <= 1300) & (x.create_role_pay_sum == 0)) |
+                              ((x.create_role_cost <= (2.5 * cost_ios - 10)) & (x.source_run_date_amount <= 1300) & (x.create_role_pay_sum != 0)) |
+                              ((x.create_role_cost <= (2.5 * cost_ios - 10)) & (x.source_run_date_amount > 1300) & (x.create_role_pay_sum == 0)) |
+                              ((x.create_role_cost <= (2.5 * cost_ios - 10)) & (x.source_run_date_amount > 1300) & (x.create_role_pay_sum != 0)) |
+                              (x.create_role_roi >= 0.03)) else 2), axis=1)
+
+            result_df = result_df.append(data_win_0_ios_1)
+
+        if data_win_0_ios_2.shape[0] != 0:
+            data_win_0_ios_2['label'] = data_win_0_ios_2.apply(
+                lambda x: 1 if (x.create_role_cost >= 3 * cost_ios)
+                        else (1 if (x.create_role_roi <= 0.03) | (x.create_role_pay_cost >= 3000)
+                              else (0 if (x.create_role_roi >= 0.031) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_ios_2)
+
+        if data_win_0_ios_3.shape[0] != 0:
+            data_win_0_ios_3['label'] = data_win_0_ios_3.apply(
+                lambda x: 1 if (x.create_role_cost >= 3 * cost_ios)
+                        else (1 if (x.create_role_roi <= 0.03) | (x.create_role_pay_cost >= 3000)
+                              else (0 if (x.create_role_roi >= 0.031) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_ios_3)
+
+        if data_win_0_ios_4.shape[0] != 0:
+            data_win_0_ios_4['label'] = data_win_0_ios_4.apply(
+                lambda x: 1 if (x.create_role_cost >= 2.8 * cost_ios)
+                        else (1 if (x.create_role_roi <= 0.03) | (x.create_role_pay_cost >= 2500)
+                              else (0 if (x.create_role_roi >= 0.031) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_ios_4)
+
+        if data_win_0_ios_5.shape[0] != 0:
+            data_win_0_ios_5['label'] = data_win_0_ios_5.apply(
+                lambda x: 1 if (x.create_role_cost >= 2.8 * cost_ios)
+                        else (1 if (x.create_role_roi <= 0.03) | (x.create_role_pay_cost >= 2000)
+                              else (0 if (x.create_role_roi >= 0.031) else 2)), axis=1)
+            result_df = result_df.append(data_win_0_ios_5)
+    if result_df.shape[0] != 0:
+        result_df['label'] = result_df['label'].astype(int)
+        result_df['budget'] = 'None'
+        result_df = result_df.fillna('null')
+    else:
+        result_df = pd.DataFrame(columns=["channel_id", "source_id", "plan_name", "model_run_datetime", "create_time",
+                                          "media_id", "game_id", "platform", "source_run_date_amount",
+                                          "create_role_num", "create_role_cost",
+                                          "create_role_pay_num", "create_role_pay_cost", "create_role_pay_sum",
+                                          "create_role_roi", "create_role_pay_rate", "create_role_pay_num_cum",
+                                          "learning_type", "learning_time_dt", "learning_time_hr", "deep_bid_type",
+                                          "label", "budget"], data=[])
+    return {"columns": result_df.columns.values.tolist(), "list": result_df.values.tolist()}
+
+
+# 金牌百度模型2
+def source_predict_state_2_jp_bd(jsondata):
+    '''
+    :param jsondata: {"columns": ["channel_id","source_id","plan_name","model_run_datetime","create_time",
+    "media_id","game_id","platform","data_win","source_run_date_amount","create_role_num",
+    "create_role_cost","create_role_pay_num","create_role_pay_cost","create_role_pay_sum","create_role_roi",
+    "create_role_retain_1d","create_role_pay_rate","create_role_pay_num_cum","learning_type","learning_time_dt",
+    "learning_time_hr","deep_bid_type","cum_amount","cum_day","cum_role_cost"]}
+    :return:
+    '''
+    data = pd.DataFrame(data=jsondata['data'], columns=jsondata['columns'])
+
+    # 数据预处理
+    data = data[data['source_run_date_amount'] > 0]  # 删除消耗为0的数据
+    # 去重，处理某天没有消耗的情况
+    data.sort_values(by='data_win', inplace=True)
+    data.drop_duplicates(subset=['channel_id', 'source_id', 'source_run_date_amount', 'create_role_num'], keep='first'
+                         , inplace=True)
+
+    # 计划7天内总消耗不足4000，且总成本合格的计划，让他继续跑，先不做判断
+    data_0 = data[(data['cum_amount'] >= 200) & (data['cum_amount'] <= 2000) & (data['cum_day'] <= 7) & (
+                data['cum_role_cost'] <= 120) & (data['platform'] == 1)]
+    data_1 = data[(data['cum_amount'] >= 200) & (data['cum_amount'] <= 4000) & (data['cum_day'] <= 7) & (
+                data['cum_role_cost'] <= 300) & (data['platform'] == 2)]
+    data_0 = data_0.append(data_1)
+    data_0['label'] = data_0['cum_amount'].apply(lambda x: 0)
+
+    data = data.drop(data_0.index).reset_index(drop=True)
+    # 对窗口期消耗200元以下的不作判断，对数据按平台、win进行分类处理
+    data_not_ignore = data[(data['source_run_date_amount'] >= 200) | (data['data_win'] == 1)]
+    data_ignore = data.drop(data_not_ignore.index)
+
+    data_win_1 = data_not_ignore[(data_not_ignore['data_win'] == 1) & (data_not_ignore['platform'] == 1)]
+    data_win_2 = data_not_ignore[(data_not_ignore['data_win'] == 2) & (data_not_ignore['platform'] == 1)]
+    data_win_3 = data_not_ignore[(data_not_ignore['data_win'] == 3) & (data_not_ignore['platform'] == 1)]
+
+    data_win_1_ios = data_not_ignore[(data_not_ignore['data_win'] == 1) & (data_not_ignore['platform'] == 2)]
+    data_win_2_ios = data_not_ignore[(data_not_ignore['data_win'] == 2) & (data_not_ignore['platform'] == 2)]
+    data_win_3_ios = data_not_ignore[(data_not_ignore['data_win'] == 3) & (data_not_ignore['platform'] == 2)]
+
+    # win=1预判
+    result_win1 = pd.DataFrame()
+    temp_win1 = pd.DataFrame()
+
+    if data_win_1.shape[0] != 0:
+        data_win_1['label'] = data_win_1.apply(lambda x: 1 if x.create_role_num == 0
+        else (1 if (x.create_role_pay_cost > 2000) | (x.create_role_cost > 120)
+              else (1 if x.create_role_roi <= 0.03
+                    else (0 if x.create_role_roi >= 0.03 else 2))), axis=1)
+
+        result_win1 = result_win1.append(data_win_1[(data_win_1['label'] == 1) | (data_win_1['label'] == 0)])
+        temp_win1 = temp_win1.append(data_win_1[data_win_1['label'] == 2])
+
+    if data_win_1_ios.shape[0] != 0:
+        data_win_1_ios['label'] = data_win_1_ios.apply(lambda x: 1 if x.create_role_num == 0
+        else (1 if (x.create_role_pay_cost > 3000) | (x.create_role_cost > 300)
+              else (1 if x.create_role_roi <= 0.025
+                    else (0 if x.create_role_roi >= 0.025 else 2))), axis=1)
+
+        result_win1 = result_win1.append(
+            data_win_1_ios[(data_win_1_ios['label'] == 1) | (data_win_1_ios['label'] == 0)])
+        temp_win1 = temp_win1.append(data_win_1_ios[data_win_1_ios['label'] == 2])
+
+    # win=1 模型预测
+    if temp_win1.shape[0] != 0:
+        temp_win1['label'] = gbdt_b_win1.predict(
+            temp_win1[['create_role_cost', 'create_role_pay_cost', 'create_role_roi',
+                       'create_role_pay_rate']])
+    result_win1_data = pd.concat([result_win1, temp_win1], axis=0)
+
+    # win=2预判
+    result_win2 = pd.DataFrame()
+    temp_win2 = pd.DataFrame()
+
+    if data_win_2.shape[0] != 0:
+        data_win_2['label'] = data_win_2.apply(lambda x: 1 if x.create_role_num == 0
+        else (1 if (x.create_role_pay_cost > 2000) | (x.create_role_cost > 120)
+              else (3 if (x.create_role_roi == 0) & (x.source_run_date_amount >= 3000)
+                    else (1 if x.create_role_roi <= 0.05
+                          else (0 if x.create_role_roi > 0.05 else 2)))), axis=1)
+        result_win2 = result_win2.append(
+            data_win_2[(data_win_2['label'] == 1) | (data_win_2['label'] == 0) | (data_win_2['label'] == 3)])
+        temp_win2 = temp_win2.append(data_win_2[data_win_2['label'] == 2])
+
+    if data_win_2_ios.shape[0] != 0:
+        data_win_2_ios['label'] = data_win_2_ios.apply(lambda x: 1 if x.create_role_num == 0
+        else (1 if (x.create_role_pay_cost > 3000) | (x.create_role_cost > 280)
+              else (3 if (x.create_role_roi == 0) & (x.source_run_date_amount >= 4000)
+                    else (1 if x.create_role_roi <= 0.045
+                          else (0 if x.create_role_roi > 0.045 else 2)))), axis=1)
+
+        result_win2 = result_win2.append(
+            data_win_2_ios[(data_win_2_ios['label'] == 1) | (data_win_2_ios['label'] == 0)])
+        temp_win2 = temp_win2.append(data_win_2_ios[data_win_2_ios['label'] == 2])
+
+    # win=2 模型预测
+    if temp_win2.shape[0] != 0:
+        temp_win2['label'] = gbdt_b_win2.predict(
+            temp_win2[['create_role_cost', 'create_role_pay_cost', 'create_role_roi',
+                       'create_role_pay_rate', 'create_role_retain_1d']])
+    result_win2_data = pd.concat([result_win2, temp_win2], axis=0)
+
+    # win=3预判
+    result_win3 = pd.DataFrame()
+    temp_win3 = pd.DataFrame()
+    if data_win_3.shape[0] != 0:
+        data_win_3['label'] = data_win_3.apply(lambda x: 1 if x.create_role_num == 0
+        else (1 if (x.create_role_pay_cost > 2000) | (x.create_role_cost > 120)
+                    else (0 if x.create_role_roi >= 0.08
+                          else (1 if x.create_role_roi <= 0.08 else 2))), axis=1)
+
+        result_win3 = result_win3.append(data_win_3[(data_win_3['label'] == 1) | (data_win_3['label'] == 0)])
+        temp_win3 = temp_win3.append(data_win_3[data_win_3['label'] == 2])
+
+    if data_win_3_ios.shape[0] != 0:
+        data_win_3_ios['label'] = data_win_3_ios.apply(lambda x: 1 if x.create_role_num == 0
+        else (1 if (x.create_role_pay_cost > 3000) | (x.create_role_cost > 280)
+                    else (0 if x.create_role_roi >= 0.075
+                          else (1 if x.create_role_roi <= 0.075 else 2))), axis=1)
+
+        result_win3 = result_win3.append(
+            data_win_3_ios[(data_win_3_ios['label'] == 1) | (data_win_3_ios['label'] == 0)])
+        temp_win3 = temp_win3.append(data_win_3_ios[data_win_3_ios['label'] == 2])
+
+    # win=3 模型预测
+    if temp_win3.shape[0] != 0:
+        temp_win3['label'] = gbdt_b_win3.predict(
+            temp_win3[['create_role_cost', 'create_role_pay_cost', 'create_role_roi',
+                       'create_role_pay_rate', 'create_role_retain_1d']])
+    result_win3_data = pd.concat([result_win3, temp_win3], axis=0)
+
+    result = pd.concat([result_win1_data, result_win2_data, result_win3_data], axis=0)
+    if result.shape[0] != 0:
+        result.sort_values('data_win', ascending=True, inplace=True)
+
+    # 结果输出
+    if result.shape[0] != 0:
+        # 1\2\3有一个开，则开，除非win2=3
+        if (result[result['data_win'] == 3].shape[0] != 0) & (result[result['data_win'] == 2].shape[0] != 0) & (
+                result[result['data_win'] == 1].shape[0] != 0):
+            result_1_2_3 = result[(result['data_win'] == 1) | (result['data_win'] == 2) | (result['data_win'] == 3)]
+            result_1_2_3_label = result_1_2_3[['channel_id', 'source_id', 'model_run_datetime', 'data_win', 'label']]
+            result_1_2_3_label['data_win'] = result_1_2_3_label['data_win'].astype(int)
+            result_1_2_3_piv = pd.pivot_table(result_1_2_3_label,
+                                              index=['channel_id', 'source_id', 'model_run_datetime'],
+                                              columns='data_win')
+            result_1_2_3_piv.columns = result_1_2_3_piv.columns.droplevel()
+            result_1_2_3_piv = result_1_2_3_piv.rename(columns={1: 'label_1', 2: 'label_2', 3: 'label_3'})
+
+            result_1_2_3_piv = result_1_2_3_piv.reset_index()
+
+            result_1_2_3_piv['label'] = result_1_2_3_piv.apply(lambda x: 0 if x.label_1 == 0
+            else (0 if x.label_2 == 0
+                  else (1 if x.label_2 == 3
+                        else (0 if x.label_3 == 0 else 1))), axis=1)
+            result_1_2_3 = result_1_2_3.drop('label', axis=1)
+            #             result_1_2 = result_1_2[result_1_2['data_win'] == 1]
+            result_1_2_3 = result_1_2_3.drop_duplicates(['channel_id', 'source_id', 'model_run_datetime'], keep='last')
+
+            result_1_2_3_piv.drop(['label_1', 'label_2', 'label_3'], axis=1, inplace=True)
+            source_predict = pd.merge(result_1_2_3, result_1_2_3_piv,
+                                      on=['channel_id', 'source_id', 'model_run_datetime'],
+                                      how='left')
+            # 1\2有一个为开，则开
+        elif (result[result['data_win'] == 2].shape[0] != 0) & (result[result['data_win'] == 1].shape[0] != 0):
+            result_1_2 = result[(result['data_win'] == 1) | (result['data_win'] == 2)]
+            result_1_2_label = result_1_2[['channel_id', 'source_id', 'model_run_datetime', 'data_win', 'label']]
+            result_1_2_label['data_win'] = result_1_2_label['data_win'].astype(int)
+            result_1_2_piv = pd.pivot_table(result_1_2_label, index=['channel_id', 'source_id', 'model_run_datetime'],
+                                            columns='data_win')
+            result_1_2_piv.columns = result_1_2_piv.columns.droplevel()
+            result_1_2_piv = result_1_2_piv.rename(columns={1: 'label_1', 2: 'label_2'})
+
+            result_1_2_piv = result_1_2_piv.reset_index()
+            result_1_2_piv['label'] = result_1_2_piv.apply(lambda x: 0 if x.label_1 == 0
+            else (0 if x.label_2 == 0 else 1), axis=1)
+            result_1_2 = result_1_2.drop('label', axis=1)
+            #             result_1_2 = result_1_2[result_1_2['data_win'] == 1]
+            result_1_2 = result_1_2.drop_duplicates(['channel_id', 'source_id', 'model_run_datetime'], keep='last')
+
+            result_1_2_piv.drop(['label_1', 'label_2'], axis=1, inplace=True)
+            source_predict = pd.merge(result_1_2, result_1_2_piv, on=['channel_id', 'source_id', 'model_run_datetime'],
+                                      how='left')
+        else:
+            source_predict = result
+
+    else:
+        source_predict = pd.DataFrame(
+            columns=["channel_id", "source_id", "plan_name", "model_run_datetime", "create_time",
+                     "media_id", "game_id", "platform", "data_win", "source_run_date_amount", "create_role_num",
+                     "create_role_cost", "create_role_pay_num", "create_role_pay_cost", "create_role_pay_sum",
+                     "create_role_roi",
+                     "create_role_retain_1d", "create_role_pay_rate", "create_role_pay_num_cum", "learning_type",
+                     "learning_time_dt",
+                     "learning_time_hr", "deep_bid_type", "cum_amount", "cum_day", "cum_role_cost", "label"])
+
+    # 消耗小的ignore，直接关停计划，赋值1，同时data_win变为9，以便后续按datawin大小筛选优先级
+    if data_ignore.shape[0] != 0:
+        data_ignore['label'] = 1
+        data_ignore.sort_values('data_win', ascending=False, inplace=True)
+        data_ignore = data_ignore.drop_duplicates(['channel_id', 'source_id', 'model_run_datetime'], keep='first')
+        data_ignore['data_win'] = 9  # 9 代表是被ignore的计划，消耗太小
+
+    # 7天内总消耗不足4000，成本合格的计划，直接开计划，账值为0，同时data_win变为-1，以便后续按datawin大小筛选优先级
+    if data_0.shape[0] != 0:
+        data_0.sort_values('data_win', ascending=False, inplace=True)
+        data_0 = data_0.drop_duplicates(['channel_id', 'source_id', 'model_run_datetime'], keep='first')
+        data_0['data_win'] = -1  # -1 代表是被data_0的计划，累积消耗太小
+
+    source_predict = pd.concat([source_predict, data_ignore], axis=0)
+    source_predict = pd.concat([source_predict, data_0], axis=0)
+
+    # 综合结果优先级： data_0    大于 data   大于  data_ignore
+    source_predict.sort_values('data_win', ascending=True, inplace=True)
+    source_predict = source_predict.drop_duplicates(['channel_id', 'source_id', 'model_run_datetime'], keep='first')
+    #     print(source_predict.head())
+    source_predict['label'] = source_predict['label'].astype(int)
+    # print(source_predict.columns.values.tolist())
+    source_predict = source_predict.fillna('null')
+
+    return {"columns": source_predict.columns.values.tolist(), "list": source_predict.values.tolist()}
+
 
 
 """

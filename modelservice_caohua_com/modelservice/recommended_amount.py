@@ -649,34 +649,34 @@ def main():
     result_10_dg = get_recommended(data_1112, groupby_list_10, mgame_id=1112)
     result_10_dg_3 = get_recommended(data_1112_3, groupby_list_10, mgame_id=1112)
 
-    # 大东家
-    data_1136, data_1136_3 = get_plan_data(mgame_id=1136)
-
-    result_1_ddj = get_recommended(data_1136, groupby_list_1, mgame_id=1136)
-    result_2_ddj = get_recommended(data_1136, groupby_list_2, mgame_id=1136)
-    result_3_ddj = get_recommended(data_1136, groupby_list_3, mgame_id=1136)
-    result_4_ddj = get_recommended(data_1136, groupby_list_4, mgame_id=1136)
-    result_5_ddj = get_recommended(data_1136, groupby_list_5, mgame_id=1136)
-    result_6_ddj = get_recommended(data_1136, groupby_list_6, mgame_id=1136)
-    result_7_ddj = get_recommended(data_1136, groupby_list_7, mgame_id=1136)
-    result_8_ddj = get_recommended(data_1136, groupby_list_8, mgame_id=1136)
-    result_9_ddj = get_recommended(data_1136, groupby_list_9, mgame_id=1136)
-    result_10_ddj = get_recommended(data_1136, groupby_list_10, mgame_id=1136)
-    result_10_ddj_3 = get_recommended(data_1136_3, groupby_list_10, mgame_id=1136)
+    # # 大东家
+    # data_1136, data_1136_3 = get_plan_data(mgame_id=1136)
+    #
+    # result_1_ddj = get_recommended(data_1136, groupby_list_1, mgame_id=1136)
+    # result_2_ddj = get_recommended(data_1136, groupby_list_2, mgame_id=1136)
+    # result_3_ddj = get_recommended(data_1136, groupby_list_3, mgame_id=1136)
+    # result_4_ddj = get_recommended(data_1136, groupby_list_4, mgame_id=1136)
+    # result_5_ddj = get_recommended(data_1136, groupby_list_5, mgame_id=1136)
+    # result_6_ddj = get_recommended(data_1136, groupby_list_6, mgame_id=1136)
+    # result_7_ddj = get_recommended(data_1136, groupby_list_7, mgame_id=1136)
+    # result_8_ddj = get_recommended(data_1136, groupby_list_8, mgame_id=1136)
+    # result_9_ddj = get_recommended(data_1136, groupby_list_9, mgame_id=1136)
+    # result_10_ddj = get_recommended(data_1136, groupby_list_10, mgame_id=1136)
+    # result_10_ddj_3 = get_recommended(data_1136_3, groupby_list_10, mgame_id=1136)
 
     # 合并数据
-    result_1 = pd.concat([result_1_mr, result_1_tk, result_1_dg, result_1_ddj], axis=0)
-    result_2 = pd.concat([result_2_mr, result_2_tk, result_2_dg, result_2_ddj], axis=0)
-    result_3 = pd.concat([result_3_mr, result_3_tk, result_3_dg, result_3_ddj], axis=0)
-    result_4 = pd.concat([result_4_mr, result_4_tk, result_4_dg, result_4_ddj], axis=0)
-    result_5 = pd.concat([result_5_mr, result_5_tk, result_5_dg, result_5_ddj], axis=0)
-    result_6 = pd.concat([result_6_mr, result_6_tk, result_6_dg, result_6_ddj], axis=0)
-    result_7 = pd.concat([result_7_mr, result_7_tk, result_7_dg, result_7_ddj], axis=0)
-    result_8 = pd.concat([result_8_mr, result_8_tk, result_8_dg, result_8_ddj], axis=0)
-    result_9 = pd.concat([result_9_mr, result_9_tk, result_9_dg, result_9_ddj], axis=0)
+    result_1 = pd.concat([result_1_mr, result_1_tk, result_1_dg], axis=0)
+    result_2 = pd.concat([result_2_mr, result_2_tk, result_2_dg], axis=0)
+    result_3 = pd.concat([result_3_mr, result_3_tk, result_3_dg], axis=0)
+    result_4 = pd.concat([result_4_mr, result_4_tk, result_4_dg], axis=0)
+    result_5 = pd.concat([result_5_mr, result_5_tk, result_5_dg], axis=0)
+    result_6 = pd.concat([result_6_mr, result_6_tk, result_6_dg], axis=0)
+    result_7 = pd.concat([result_7_mr, result_7_tk, result_7_dg], axis=0)
+    result_8 = pd.concat([result_8_mr, result_8_tk, result_8_dg], axis=0)
+    result_9 = pd.concat([result_9_mr, result_9_tk, result_9_dg], axis=0)
 
-    result_10_1 = pd.concat([result_10_mr, result_10_tk, result_10_dg,  result_10_ddj], axis=0)
-    result_10_2 = pd.concat([result_10_mr_3, result_10_tk_3, result_10_dg_3, result_10_ddj_3], axis=0)
+    result_10_1 = pd.concat([result_10_mr, result_10_tk, result_10_dg], axis=0)
+    result_10_2 = pd.concat([result_10_mr_3, result_10_tk_3, result_10_dg_3], axis=0)
 
     # 合并3、7天计划评分数据
     result_10_1['data_win'] = 7
