@@ -1,3 +1,0 @@
-2022-04-22 16:14:51,764 - web_application - INFO - LifeReturnForcast web server start!
-2022-04-22 16:15:13,990 - root - INFO - Doing LifeReturnForcast Post Service...
-2022-04-22 16:15:14,131 - root - INFO - {"code": 200, "msg": "LifeReturnForcast is success!"}
