@@ -19,6 +19,52 @@ from itertools import combinations
 from tqdm import tqdm_notebook
 
 
+import pandas as pd
+import numpy as np
+import json
+import time
+from numpy import *
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+import warnings
+import lightgbm as lgb
+from impala.dbapi import connect
+from impala.util import as_pandas
+import pymysql
+import ast
+import requests
+import re
+from itertools import combinations
+from tqdm import tqdm_notebook
+import logging
+
+warnings.filterwarnings('ignore')
+logger = logging.getLogger('CreatePlangdtdg')
+
+
+#
+# 打包接口
+#
+class CreatePlangdtdg:
+    def POST(self):
+        # 处理POST请求
+        logging.info("do service")
+        try:
+            ret = self.Process()
+            logging.info(ret)
+            return ret
+        except Exception as e:
+            logging.error(e)
+            ret = json.dumps({"code": 500, "msg": str(e)})
+            return ret
+
+    # 任务处理函数
+    def Process(self):
+        main_model()
+        ret = json.dumps({"code": 200, "msg": "success!", "data": "create gdt dg plan is  success"})
+        return ret
+
+
 def get_game_id():
     conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
                            passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
@@ -78,6 +124,7 @@ def get_image_info():
                            passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
+        /*手动查询*/
         SELECT
             a.chl_user_id AS channel_id,
             a.source_id,
@@ -289,6 +336,22 @@ def get_score_image():
     return result['image_id'].values
 
 
+# 获取illegal_image (违规素材)
+def get_illegal_image():
+    conn = pymysql.connect(host='db-slave-modelfenxi-001.ch', port=3306, user='model_read',
+                           passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
+    cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
+
+    sql = 'select image_id from db_data_ptom.ptom_image_info where FIND_IN_SET(1001706,game_ids)'
+    cur.execute(sql)
+    result = pd.read_sql(sql, conn)
+    # 关闭链接
+    cur.close()
+    conn.close()
+
+    return result['image_id'].values
+
+
 # 获取近期计划的运营数据
 def get_now_plan_roi():
     game_id = get_game_id()
@@ -300,6 +363,7 @@ def get_now_plan_roi():
                            passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
+        /*手动查询*/
         SELECT
             a.ad_account_id,
             b.channel_id,
@@ -336,15 +400,17 @@ def get_now_plan_roi():
     return result_df
 
 
-def create_plan(df, score_image):
+def create_plan(df, score_image, illegal_image):
     # 选ad_account_id、image_id每个账号+素材8条
     game_id = 1001832
     # df = df[df['game_id'] == game_id]
-    df = df[df['game_id'].isin([1001545, 1001465, 1001832])]
+    df = df[df['game_id'].isin([1001545, 1001465, 1001832, 1001834])]
     ad_account_id_group = np.array([8499, 8500, 8501, 8502, 8503, 8504, 8505, 8506, 8507, 8508,
                                     8518, 8517, 8516, 8515, 8514, 8513, 8512, 8511, 8510, 8509])
 
     image_id_group = np.intersect1d(df['image_id'].unique(), score_image)
+    # 过滤违规素材
+    image_id_group = np.setdiff1d(image_id_group, illegal_image)
 
     print(image_id_group)
     df = df[df['image_id'].isin(image_id_group)]
@@ -466,6 +532,8 @@ def get_train_df():
     plan_info_current = plan_info[plan_info['create_time'] >= pd.datetime.now() - pd.DateOffset(30)]
     now_plan_roi = get_now_plan_roi()
     score_image = get_score_image()
+    illegal_image = get_illegal_image()  ## TODO 过滤违规素材
+
     image_info = image_info[image_info['image_id'].notna()]
     image_info['image_id'] = image_info['image_id'].astype(int)
     df_create = pd.merge(plan_info_current, image_info, on=['channel_id', 'source_id', 'image_id'], how='left')
@@ -474,13 +542,10 @@ def get_train_df():
     df_create = df_create[df_create['site_set'].notna()]
 
     # 只跑ROI  ## TODO:ROI
-    # df_create = df_create[(df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_ACTIVATE') | (
-    #             df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_PURCHASE')]
-
-    df_create = df_create[df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_ACTIVATE']
+    # df_create = df_create[(df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_ACTIVATE') | (df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_PURCHASE')]
 
     df_create.to_csv('./df_create.csv', index=0)
-    plan_create = create_plan(df_create, score_image)
+    plan_create = create_plan(df_create, score_image, illegal_image)  ## TODO 过滤违规素材
     # 过滤掉版本不是微信朋友圈，但是每次付费的计划
 
     image_info.dropna(subset=['image_id'], inplace=True)
@@ -627,7 +692,7 @@ def main_model():
     y_predict = model.predict(features_test)
 
     plan_create['prob'] = y_predict
-    threshold = pd.Series(y_predict).sort_values(ascending=False).reset_index(drop=True)[int(y_predict.shape[0] * 0.4)]
+    threshold = pd.Series(y_predict).sort_values(ascending=False).reset_index(drop=True)[int(y_predict.shape[0] * 0.7)]
 
     plan_result = plan_create[plan_create['prob'] >= threshold]
     plan_result['rank_ad_im'] = plan_result.groupby(['ad_account_id', 'image_id'])['prob'].rank(ascending=False,
@@ -651,14 +716,24 @@ def main_model():
     plan_result['weight'] = plan_result.groupby(['ad_account_id'])['game_id'].transform('count')
     plan_result['site_set'] = plan_result['site_set'].map(str)
 
-    if plan_result.shape[0] > 80:
-        plan_result = plan_result.sample(80, weights=plan_result['weight'])
+    # if plan_result.shape[0] > 40:
+    #     plan_result = plan_result.sample(40, weights=plan_result['weight'])
 
-    ad_num = plan_result['image_id'].value_counts()
-    for ad in np.setdiff1d(plan_create['image_id'].values, ad_num[ad_num >= 2].index):
-        add_plan = plan_result_pr[plan_result_pr['image_id'] == ad].sort_values('prob', ascending=False)[0:2]
-        add_plan['site_set'] = add_plan['site_set'].map(str)
-        plan_result = plan_result.append(add_plan)
+    ad_account_id_group = np.array([8499, 8500, 8502, 8503, 8504, 8505, 8506, 8507,
+                                    8517, 8514, 8513, 8512])
+    plan_num = 5
+    plan_result_n = pd.DataFrame()
+    for account_id in ad_account_id_group:
+        plan_result_ = plan_result[plan_result['ad_account_id'] == account_id]
+        plan_result_ = plan_result_.sample(plan_num)
+        plan_result_n = plan_result_n.append(plan_result_)
+    plan_result = plan_result_n
+
+    # ad_num = plan_result['image_id'].value_counts()
+    # for ad in np.setdiff1d(plan_create['image_id'].values, ad_num[ad_num >= 2].index):
+    #     add_plan = plan_result_pr[plan_result_pr['image_id'] == ad].sort_values('prob', ascending=False)[0:2]
+    #     add_plan['site_set'] = add_plan['site_set'].map(str)
+    #     plan_result = plan_result.append(add_plan)
 
     plan_result['rank_ad_im'] = plan_result.groupby(['ad_account_id', 'image_id'])['prob'].rank(ascending=False,
                                                                                                 method='first')
@@ -715,6 +790,34 @@ def main_model():
     plan_result['adcreative_elements'] = plan_result['adcreative_elements'].apply(doSubStr)
     plan_result['adcreative_elements'] = plan_result['adcreative_elements'].apply(ast.literal_eval)
 
+    # 分配出价方式
+    plan_result['ad_account_id'] = plan_result['ad_account_id'].map(int)
+    # plan_result_n = pd.DataFrame()
+    # for account_id in ad_account_id_group:
+    #     plan_result_ = plan_result[plan_result['ad_account_id'] == account_id]
+    #     plan_result_ = plan_result_.reset_index(drop=True)
+    #     plan_result_1 = plan_result_.sample(0)
+    #     plan_result_2 = plan_result_.drop(plan_result_1.index, axis=0)
+    #     plan_result_1['optimization_goal'] = plan_result_1['optimization_goal'].apply(lambda x:'OPTIMIZATIONGOAL_APP_PURCHASE')
+    #     plan_result_2['optimization_goal'] = plan_result_2['optimization_goal'].apply(lambda x: 'OPTIMIZATIONGOAL_APP_ACTIVATE')
+    #     plan_result_1 = plan_result_1.append(plan_result_2)
+    #     plan_result_n = plan_result_n.append(plan_result_1)
+    # plan_result = plan_result_n.reset_index(drop=True)
+
+    # 调低ROI系数  ##TODO
+    plan_result['optimization_goal'] = plan_result['optimization_goal'].apply(lambda x: 'OPTIMIZATIONGOAL_APP_ACTIVATE')   ## TODO  固定ROI
+    plan_result['deep_conversion_type'] = plan_result['optimization_goal'].apply(
+        lambda x: 'DEEP_CONVERSION_WORTH' if x == 'OPTIMIZATIONGOAL_APP_ACTIVATE' else np.nan)
+
+    plan_result['deep_conversion_worth_spec'] = plan_result['optimization_goal'].apply(
+        lambda x: {'goal': 'GOAL_1DAY_PURCHASE_ROAS',
+                   'expected_roi': 0.015} if x == 'OPTIMIZATIONGOAL_APP_ACTIVATE' else np.nan)
+    # 固定出价
+    plan_result['bid_amount'] = plan_result['optimization_goal'].apply(
+        lambda x: random.randint(65000, 70000) if x == 'OPTIMIZATIONGOAL_APP_ACTIVATE'
+        else (random.randint(110000, 120000) if x == 'OPTIMIZATIONGOAL_APP_PURCHASE'
+              else (random.randint(220000, 230000))))
+
     # 定义组合json
     plan_result['intention'] = plan_result['intention_targeting_tags'].apply(lambda x: {'targeting_tags': x})
     plan_result.drop(['intention_targeting_tags'], axis=1, inplace=True)
@@ -767,6 +870,7 @@ def main_model():
                       "intention", "interest", "behavior"], axis=1, inplace=True)
 
     # plan_result['operation'] = 'disable'
+    plan_result['plan_auto_task_id'] = "11427,12063"
     plan_result['op_id'] = 13268
     plan_result['flag'] = 'GDT'
     plan_result['game_name'] = '亚洲王朝'

@@ -13,7 +13,7 @@
     <SUITE FILE_PATH="coverage/create_plan_2_6__$create_plan__.coverage" NAME="create_plan(手动) Coverage Results" MODIFIED="1622792258258" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/create_plan_1_1__$create_plan_main.coverage" NAME="create_plan_main Coverage Results" MODIFIED="1612752316286" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/create_plan_2_1__$create_plan_main.coverage" NAME="create_plan_main Coverage Results" MODIFIED="1614240785371" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/create_plan_4_0_IOS$create_plan_gdt_ios.coverage" NAME="create_plan_gdt_ios Coverage Results" MODIFIED="1633664297994" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/create_plan_4_0_IOS$create_plan_gdt_ios.coverage" NAME="create_plan_gdt_ios Coverage Results" MODIFIED="1634628718216" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/create_plan_2_1__$create_plan__.coverage" NAME="create_plan(手动) Coverage Results" MODIFIED="1616119243839" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/create_plan_2_3_base_$create_plan__.coverage" NAME="create_plan(手动) Coverage Results" MODIFIED="1621331185663" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/create_plan_1_0_$create_plan_gdt_1_0.coverage" NAME="create_plan_gdt_1.0 Coverage Results" MODIFIED="1632884563416" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
@@ -23,8 +23,8 @@
       <file leaf-file-name="create_plan_gdt_ios.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/create_plan_gdt_ios.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="725">
-              <caret line="487" column="80" selection-start-line="487" selection-start-column="80" selection-end-line="487" selection-end-column="80" />
+            <state relative-caret-position="-7548">
+              <caret line="344" column="64" selection-start-line="344" selection-start-column="64" selection-end-line="344" selection-end-column="64" />
               <folding>
                 <element signature="e#0#19#0" expanded="true" />
               </folding>
@@ -70,11 +70,11 @@
   <component name="NodePackageJsonFileManager">
     <packageJsonPaths />
   </component>
-  <component name="ProjectFrameBounds" extendedState="7">
-    <option name="x" value="174" />
-    <option name="y" value="83" />
-    <option name="width" value="1591" />
-    <option name="height" value="950" />
+  <component name="ProjectFrameBounds" extendedState="6">
+    <option name="x" value="156" />
+    <option name="y" value="23" />
+    <option name="width" value="1631" />
+    <option name="height" value="932" />
   </component>
   <component name="ProjectView">
     <navigator proportions="" version="1">
@@ -220,7 +220,7 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="-8" width="1936" height="1056" extended-state="7" />
+    <frame x="-8" y="-8" width="1936" height="1056" extended-state="6" />
     <editor active="true" />
     <layout>
       <window_info anchor="bottom" id="TODO" order="6" />
@@ -305,8 +305,8 @@
     <entry file="file://$PROJECT_DIR$/create_plan_gdt_1.0.py" />
     <entry file="file://$PROJECT_DIR$/create_plan_gdt_ios.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="725">
-          <caret line="487" column="80" selection-start-line="487" selection-start-column="80" selection-end-line="487" selection-end-column="80" />
+        <state relative-caret-position="-7548">
+          <caret line="344" column="64" selection-start-line="344" selection-start-column="64" selection-end-line="344" selection-end-column="64" />
           <folding>
             <element signature="e#0#19#0" expanded="true" />
           </folding>

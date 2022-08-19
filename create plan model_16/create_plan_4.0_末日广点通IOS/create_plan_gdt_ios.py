@@ -321,8 +321,8 @@ def get_now_plan_roi():
             AND b.game_id IN ({}) 
             AND b.amount >= 200 
             AND b.pay_role_user_num >= 1
-            AND b.new_role_money >= 48
-            AND (b.new_role_money / b.amount)>=0.012
+            AND b.new_role_money >= 12
+            AND (b.new_role_money / b.amount)>=0.005
     '''
     finalSql = sql.format(game_id)
     cur.execute(finalSql)
@@ -338,7 +338,7 @@ def get_now_plan_roi():
 
 def create_plan(df, score_image):
     # 选ad_account_id、image_id每个账号+素材8条
-    game_id = 1001617  ## 选择包：明日战纪-ios-IOS联运
+    game_id = 1001446  ## 选择包：幸存挑战 - 曙光信仰
     df = df[df['game_id'].isin([1001617, 1001447, 1001446, 1001611, 1001613, 1001444, 1001609, 1001610])]
     ## 候选计划的包ID限制（明日战纪-ios-IOS联运，n1计划-IOS联运-IOS联运，幸存挑战 - 曙光信仰-IOS联运, 迷岛生存IOS-IOS联运, 潜藏之地-IOS联运,
     # 绝地末日 - IOS联运 - IOS联运# , 迷城起源-黎明危域-IOS联运, 黎明血战-IOS-IOS联运）
@@ -412,7 +412,7 @@ def create_plan(df, score_image):
         plan[col] = plan.apply(lambda x: np.random.choice(count_df['col'].values, 1, p=count_df['pct'].values)[0],
                                axis=1)
 
-    plan['promoted_object_id'] = '1570594902'
+    plan['promoted_object_id'] = '1573087927'    ## TODO
     plan['create_time'] = pd.to_datetime(pd.datetime.now())
     plan['create_date'] = pd.to_datetime(pd.datetime.now().date())
     plan = plan.reset_index(drop=True)
@@ -471,8 +471,8 @@ def get_train_df():
                          how='inner')
     # df_create = df_create[df_create['site_set'].notna()]  ## 注释掉：以支持自动化版位
 
-    # # 先只跑首次付费，ROI没有权限  ## TODO:ROI
-    df_create = df_create[(df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_FIRST_PURCHASE')|(df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_PURCHASE')]
+    # 只跑ROI  ## TODO:ROI
+    df_create = df_create[df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_ACTIVATE']
 
     df_create.to_csv('./df_create.csv', index=0)
     plan_create = create_plan(df_create, score_image)
@@ -625,8 +625,22 @@ def main_model():
     plan_result['weight'] = plan_result.groupby(['ad_account_id'])['game_id'].transform('count')
     plan_result['site_set'] = plan_result['site_set'].map(str)
 
-    if plan_result.shape[0] > 60:
-        plan_result = plan_result.sample(60, weights=plan_result['weight'])
+    # 朋友圈200,非朋友圈20
+    plan_result_1 = plan_result[plan_result['site_set'] == "['SITE_SET_MOMENTS']"]
+    if plan_result_1.shape[0] > 100:
+        plan_result_1 = plan_result_1.sample(100, weights=plan_result_1['weight'])
+    plan_result_2 = plan_result[plan_result['site_set'] != "['SITE_SET_MOMENTS']"]
+    if plan_result_1.shape[0] != 0:
+        if plan_result_2.shape[0] > 0:
+            plan_result_2 = plan_result_2.sample(0, weights=plan_result_2['weight'])
+    else:
+        if plan_result_2.shape[0] > 0 * 3:
+            plan_result_2 = plan_result_2.sample(0 * 3, weights=plan_result_2['weight'])
+
+    plan_result = plan_result_1.append(plan_result_2)
+
+    # if plan_result.shape[0] > 80:
+    #     plan_result = plan_result.sample(80, weights=plan_result['weight'])
 
     ad_num = plan_result['image_id'].value_counts()
     for ad in np.setdiff1d(plan_create['image_id'].values, ad_num[ad_num >= 2].index):
@@ -637,7 +651,9 @@ def main_model():
                                                                                                 method='first')
     plan_result = plan_result[plan_result['rank_ad_im'] <= 1]
     plan_result = plan_result.drop(['create_time', 'create_date', 'prob', 'rank_ad_im', 'label_ids', 'weight'], axis=1)
-    
+
+    plan_result = plan_result[plan_result['site_set'] == "['SITE_SET_MOMENTS']"]  ## TODO 只跑朋友圈
+
     # [SITE_SET_WECHAT] 公众号和小程序adcreative_template_id只跑1480、560、720、721、1064五种
     plan_result['site_set'] = plan_result['site_set'].map(str)
     plan_result = plan_result[~((plan_result['site_set'] == "['SITE_SET_WECHAT']") & (
@@ -645,15 +661,12 @@ def main_model():
 
     plan_result['location_types'] = plan_result['location_types'].apply(lambda x: ['LIVE_IN'] if x == x else x)
 
-    # 修改落地页ID
+    # 修改落地页ID   幸存挑战-曙光
     plan_result['page_spec'] = plan_result.apply(
         lambda x: {'override_canvas_head_option': 'OPTION_CREATIVE_OVERRIDE_CANVAS',
-                   'page_id': '2270553984'} if x.site_set == "['SITE_SET_MOMENTS']"
+                   'page_id': '2279177200'} if x.site_set == "['SITE_SET_MOMENTS']"
         else ({'override_canvas_head_option': 'OPTION_CREATIVE_OVERRIDE_CANVAS',
-               'page_id': '2270572926'} if x.site_set == "['SITE_SET_WECHAT']" else np.nan), axis=1)
-    # plan_result['link_page_spec'] = plan_result.apply(
-    #     lambda x: 'LINK_PAGE_TYPE_DEFAULT' if x.site_set == "['SITE_SET_MOMENTS']"
-    #     else ('LINK_PAGE_TYPE_DEFAULT' if x.site_set == "['SITE_SET_WECHAT']" else np.nan), axis=1)
+               'page_id': '2279210055'} if x.site_set == "['SITE_SET_WECHAT']" else np.nan), axis=1)
 
     # plan_result['page_spec'] = plan_result.apply(
     #     lambda x: {'override_canvas_head_option': 'OPTION_CREATIVE_OVERRIDE_CANVAS',
@@ -668,8 +681,13 @@ def main_model():
     plan_result['ad_account_id'] = plan_result['ad_account_id'].map(str)
     plan_result_1 = plan_result[plan_result['site_set'] == "['SITE_SET_MOMENTS']"]
     plan_result_2 = plan_result[plan_result['site_set'] != "['SITE_SET_MOMENTS']"]
-    profile_id_dict = {'9217': '555139', '9218': '555154', '9219': '555167', '9220': '555191', '9221': '555200',
-                       '9223': '555218', '9224': '555232', '9225': '555242', '9226': '555251', '9227': '555286'}
+    # 明日战纪头像
+    # profile_id_dict = {'9217': '555139', '9218': '555154', '9219': '555167', '9220': '555191', '9221': '555200',
+    #                    '9223': '555218', '9224': '555232', '9225': '555242', '9226': '555251', '9227': '555286'}
+    # 幸存曙光头像
+    profile_id_dict = {'9217': '576018', '9218': '576029', '9219': '576037', '9220': '576054', '9221': '576082',
+                       '9223': '576104', '9224': '576126', '9225': '576137', '9226': '576145', '9227': '576159'}
+
     plan_result_1['profile_id'] = plan_result_1['ad_account_id'].map(profile_id_dict)
 
     plan_result = plan_result_1.append(plan_result_2)
@@ -729,10 +747,10 @@ def main_model():
                       "excluded_converted_audience", "geo_location",
                       "intention", "interest", "behavior"], axis=1, inplace=True)
 
-    plan_result['operation'] = 'disable'
+    # plan_result['operation'] = 'disable'
     plan_result['op_id'] = 13268
     plan_result['flag'] = 'GDT'
-    plan_result['game_name'] = '明日战纪'
+    plan_result['game_name'] = '曙光'
     plan_result['platform'] = 2
     plan_result['ad_account_id'] = plan_result['ad_account_id'].astype(int)
     plan_result['site_set'] = plan_result['site_set'].apply(ast.literal_eval)
@@ -746,7 +764,7 @@ def main_model():
     # plan_result = plan_result[plan_result['automatic_site_enabled'] == True].iloc[:3]  ## 自动版位测试
     # get_ad_create(plan_result)
     # print("[INFO]: 新建计划创建完毕！")
-
+    print(plan_result.shape[0])
     plan_result_seg = pd.DataFrame()
     for i in range(plan_result.shape[0]):
         plan_result_seg = plan_result_seg.append(plan_result.iloc[i:i + 1])

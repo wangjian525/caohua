@@ -16,15 +16,24 @@
     <SUITE FILE_PATH="coverage/create_plan_2_1__$create_plan__.coverage" NAME="create_plan(手动) Coverage Results" MODIFIED="1616119243839" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/create_plan_2_3_base_$create_plan__.coverage" NAME="create_plan(手动) Coverage Results" MODIFIED="1621331185663" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/create_plan_1_0_$create_plan_gdt_1_0.coverage" NAME="create_plan_gdt_1.0 Coverage Results" MODIFIED="1627894599178" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/create_plan_2_0__$create_plan_dg_gdt_1_0.coverage" NAME="create_plan_dg_gdt_1.0 Coverage Results" MODIFIED="1634001746530" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/create_plan_2_0__$create_plan_dg_gdt_1_0.coverage" NAME="create_plan_dg_gdt_1.0 Coverage Results" MODIFIED="1637027872422" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
       <file leaf-file-name="create_plan_dg_gdt_1.0.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/create_plan_dg_gdt_1.0.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="356">
-              <caret line="616" column="24" lean-forward="true" selection-start-line="616" selection-start-column="24" selection-end-line="616" selection-end-column="24" />
+            <state relative-caret-position="-16182">
+              <caret line="5" column="46" lean-forward="true" selection-start-line="5" selection-start-column="46" selection-end-line="5" selection-end-column="46" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="补付费次数计划.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/补付费次数计划.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="215">
+              <caret line="336" selection-start-line="336" selection-end-line="336" />
               <folding>
                 <element signature="e#0#19#0" expanded="true" />
               </folding>
@@ -56,6 +65,7 @@
         <option value="F:/三一/fk_model/model/run.py" />
         <option value="$PROJECT_DIR$/create_plan(手动).py" />
         <option value="$PROJECT_DIR$/create_plan_gdt_1.0.py" />
+        <option value="$PROJECT_DIR$/补付费次数计划.py" />
         <option value="$PROJECT_DIR$/create_plan_dg_gdt_1.0.py" />
       </list>
     </option>
@@ -70,10 +80,10 @@
     <packageJsonPaths />
   </component>
   <component name="ProjectFrameBounds" extendedState="7">
-    <option name="x" value="174" />
-    <option name="y" value="83" />
-    <option name="width" value="1591" />
-    <option name="height" value="950" />
+    <option name="x" value="283" />
+    <option name="y" value="28" />
+    <option name="width" value="1438" />
+    <option name="height" value="860" />
   </component>
   <component name="ProjectView">
     <navigator proportions="" version="1">
@@ -84,8 +94,12 @@
         <subPane>
           <expand>
             <path>
-              <item name="create_plan_2.0_广点通 （帝国）" type="b2602c69:ProjectViewProjectNode" />
-              <item name="create_plan_2.0_广点通 （帝国）" type="462c0819:PsiDirectoryNode" />
+              <item name="create_plan_2.0_广点通 （帝国改出价前）" type="b2602c69:ProjectViewProjectNode" />
+              <item name="create_plan_2.0_广点通 （帝国改出价前）" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="create_plan_2.0_广点通 （帝国改出价前）" type="b2602c69:ProjectViewProjectNode" />
+              <item name="External Libraries" type="cb654da1:ExternalLibrariesNode" />
             </path>
           </expand>
           <select />
@@ -96,7 +110,7 @@
   </component>
   <component name="PropertiesComponent">
     <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../create_plan_4.1_末日广点通IOS (N1计划)" />
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
     <property name="settings.editor.selected.configurable" value="File.Encoding" />
@@ -220,16 +234,15 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="-8" width="1936" height="1056" extended-state="7" />
-    <editor active="true" />
     <layout>
       <window_info anchor="bottom" id="TODO" order="6" />
       <window_info anchor="bottom" id="Event Log" order="7" sideWeight="0.5015625" side_tool="true" weight="0.21125266" />
       <window_info anchor="bottom" id="Database Changes" order="7" show_stripe_button="false" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" sideWeight="0.4984375" visible="true" weight="0.35364527" />
+      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.4984375" weight="0.25680086" />
       <window_info anchor="bottom" id="Version Control" order="7" show_stripe_button="false" />
       <window_info anchor="bottom" id="Python Console" order="7" />
       <window_info anchor="bottom" id="Terminal" order="7" />
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.09168444" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.15191898" />
       <window_info anchor="bottom" id="Docker" order="7" show_stripe_button="false" />
       <window_info anchor="right" id="Database" order="3" />
       <window_info anchor="right" id="SciView" order="3" />
@@ -261,9 +274,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="15010">
           <caret line="797" column="16" lean-forward="true" selection-start-line="797" selection-start-column="16" selection-end-line="797" selection-end-column="16" />
-          <folding>
-            <element signature="e#0#19#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -271,9 +281,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="12388">
           <caret line="659" column="80" lean-forward="true" selection-start-line="659" selection-start-column="80" selection-end-line="659" selection-end-column="80" />
-          <folding>
-            <element signature="e#0#19#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -281,9 +288,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="12198">
           <caret line="648" column="111" selection-start-line="648" selection-start-column="111" selection-end-line="648" selection-end-column="111" />
-          <folding>
-            <element signature="e#0#19#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -291,9 +295,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="12198">
           <caret line="648" column="111" selection-start-line="648" selection-start-column="111" selection-end-line="648" selection-end-column="111" />
-          <folding>
-            <element signature="e#0#19#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -301,9 +302,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="12388">
           <caret line="657" column="38" selection-start-line="657" selection-start-column="32" selection-end-line="657" selection-end-column="38" />
-          <folding>
-            <element signature="e#0#19#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -311,9 +309,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="13661">
           <caret line="724" column="72" selection-start-line="724" selection-start-column="72" selection-end-line="724" selection-end-column="72" />
-          <folding>
-            <element signature="e#0#19#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -321,9 +316,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="13661">
           <caret line="724" column="72" selection-start-line="724" selection-start-column="72" selection-end-line="724" selection-end-column="72" />
-          <folding>
-            <element signature="e#0#19#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -331,9 +323,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="13661">
           <caret line="724" column="72" lean-forward="true" selection-start-line="724" selection-start-column="72" selection-end-line="724" selection-end-column="72" />
-          <folding>
-            <element signature="e#0#19#0" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -365,13 +354,20 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/create_plan(手动).py" />
     <entry file="file://$PROJECT_DIR$/create_plan_gdt_1.0.py" />
-    <entry file="file://$PROJECT_DIR$/create_plan_dg_gdt_1.0.py">
+    <entry file="file://$PROJECT_DIR$/补付费次数计划.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="356">
-          <caret line="616" column="24" lean-forward="true" selection-start-line="616" selection-start-column="24" selection-end-line="616" selection-end-column="24" />
+        <state relative-caret-position="215">
+          <caret line="336" selection-start-line="336" selection-end-line="336" />
           <folding>
             <element signature="e#0#19#0" expanded="true" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/create_plan_dg_gdt_1.0.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-16182">
+          <caret line="5" column="46" lean-forward="true" selection-start-line="5" selection-start-column="46" selection-end-line="5" selection-end-column="46" />
         </state>
       </provider>
     </entry>

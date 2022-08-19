@@ -70,11 +70,11 @@
   <component name="NodePackageJsonFileManager">
     <packageJsonPaths />
   </component>
-  <component name="ProjectFrameBounds" extendedState="7">
-    <option name="x" value="174" />
-    <option name="y" value="83" />
+  <component name="ProjectFrameBounds" extendedState="6">
+    <option name="x" value="68" />
+    <option name="y" value="51" />
     <option name="width" value="1591" />
-    <option name="height" value="950" />
+    <option name="height" value="917" />
   </component>
   <component name="ProjectView">
     <navigator proportions="" version="1">
@@ -220,7 +220,7 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="-8" width="1936" height="1056" extended-state="7" />
+    <frame x="-8" y="-8" width="1936" height="1056" extended-state="6" />
     <editor active="true" />
     <layout>
       <window_info anchor="bottom" id="TODO" order="6" />

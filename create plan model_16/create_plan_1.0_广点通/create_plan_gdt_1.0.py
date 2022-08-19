@@ -78,6 +78,7 @@ def get_image_info():
                            passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
+        /*手动查询*/
         SELECT
             a.chl_user_id AS channel_id,
             a.source_id,
@@ -203,10 +204,14 @@ def get_plan_json(plan_info):
     plan_info.drop('excluded_converted_audience', axis=1, inplace=True)
     plan_info.drop(0, axis=1, inplace=True)
 
-    temp = plan_info['geo_location'].apply(pd.Series)
-    plan_info = pd.concat([plan_info, temp], axis=1)
-    plan_info.drop('geo_location', axis=1, inplace=True)
-    plan_info.drop(0, axis=1, inplace=True)
+    if 'geo_location' in plan_info.columns:
+        temp = plan_info['geo_location'].apply(pd.Series)
+        plan_info = pd.concat([plan_info, temp], axis=1)
+        plan_info.drop('geo_location', axis=1, inplace=True)
+        plan_info.drop(0, axis=1, inplace=True)
+    else:
+        plan_info['location_types'] = np.nan
+        plan_info['regions'] = np.nan
 
     # 过滤一对多计划
     plan_info['ad_id_count'] = plan_info.groupby('plan_id')['ad_id'].transform('count')
@@ -217,6 +222,10 @@ def get_plan_json(plan_info):
             plan_info['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_ACTIVATE'))]
     # 删除auto_audience=True 的记录，并且删除auto_audience字段
     plan_info[plan_info['auto_audience'] == False]
+
+    if 'deep_conversion_behavior_spec' not in plan_info.columns:
+        plan_info['deep_conversion_behavior_spec'] = np.nan
+
     plan_info = plan_info[['ad_account_id', 'game_id', 'channel_id', 'source_id', 'budget_mode',
                            'create_time', 'image_id', 'optimization_goal', 'time_series',
                            'bid_strategy', 'bid_amount', 'daily_budget', 'expand_enabled',
@@ -300,6 +309,7 @@ def get_now_plan_roi():
                            passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
+        /*手动查询*/
         SELECT
             a.ad_account_id,
             b.channel_id,
@@ -321,8 +331,8 @@ def get_now_plan_roi():
             AND b.game_id IN ({}) 
             AND b.amount >= 200 
             AND b.pay_role_user_num >= 1 
-            AND b.new_role_money >= 48
-            AND (b.new_role_money / b.amount)>=0.015
+            AND b.new_role_money >= 24
+            AND (b.new_role_money / b.amount)>=0.01
     '''
     finalSql = sql.format(game_id)
     cur.execute(finalSql)
@@ -340,6 +350,7 @@ def get_roi(x, y, z):
                            passwd='aZftlm6PcFjN{DxIKOPr)BcutuJd<uYOC0P<8')
     cur = conn.cursor(cursor=pymysql.cursors.DictCursor)
     sql = '''
+       /*手动查询*/
        SELECT
             aa.launch_op_id AS 'launch_op_id',
             aa.media_id AS 'media_id',
@@ -649,7 +660,7 @@ def create_plan(df, score_image):
     # 选ad_account_id、image_id每个账号+素材8条
     game_id = 1001379
     # df = df[df['game_id'] == game_id]
-    df = df[df['game_id'].isin([1001379, 1001757])]
+    df = df[df['game_id'].isin([1001379, 1001757, 1001841])]
     # ad_account_id_group = np.array([7981, 7984, 8035, 8036, 8038, 8039, 8079, 8077, 8074, 8073])
     # ad_account_id_group = np.array([7982, 8037, 8082, 8080, 8078, 8076, 8075, 7981, 7984, 8035, 8036,
     #                                 8038, 8039, 8077, 8073])
@@ -659,17 +670,12 @@ def create_plan(df, score_image):
     #     8829, 8830, 8831, 8832, 8833, 8834, 8835, 8836, 8837, 8838, 8839, 8840, 8841, 8842, 8843,
     #     8844, 8845, 8846, 8847, 8848, 8854, 8855, 8856, 8857, 8858, 8859, 8860, 8743, 8742, 8741,
     #     8740, 8739, 8738, 8737, 8736, 8735, 8734, 8733, 8732, 8731, 8730, 8729])
-    ad_account_id_group = np.array([
-        7982, 8037, 8082, 8080, 8076, 8075, 7981, 7984, 8035, 8036, 8038, 8039, 8077, 8073,
-        8815, 8816, 8817, 8819, 8820, 8821, 8822, 8823, 8827,
-        8829, 8830, 8831, 8832, 8833, 8835, 8837, 8838, 8839, 8840, 8841, 8842, 8843,
-        8844, 8845, 8847, 8854, 8855, 8856, 8857, 8858, 8743, 8742, 8741,
-        8737, 8736, 8734, 8733, 8731, 8729])
+    ad_account_id_group = np.array([8082, 8854, 8817, 8843, 8077, 8839])
 
     image_id_group = np.intersect1d(df['image_id'].unique(), score_image)
     image_id_group = list(filter(lambda x: x >= 32861, image_id_group))
 
-    # print(image_id_group)
+    print(image_id_group)
     df = df[df['image_id'].isin(image_id_group)]
     #     df = df[df['site_set'].notna()]
 
@@ -794,7 +800,10 @@ def get_train_df():
     df_create = pd.merge(df_create, now_plan_roi.drop(['ad_account_id'], axis=1), on=['channel_id', 'source_id'],
                          how='inner')
     df_create = df_create[df_create['site_set'].notna()]
-
+    # 只跑ROI和付费次数 TODO
+    # # df_create = df_create[(df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_ACTIVATE') | (df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_PURCHASE')]
+    # df_create = df_create[df_create['optimization_goal'] == 'OPTIMIZATIONGOAL_APP_ACTIVATE']
+    df_create.to_csv('./df_create.csv', index=0)
     plan_create = create_plan(df_create, score_image)
     image_info.dropna(subset=['image_id'], inplace=True)
     image_info['image_id'] = image_info['image_id'].astype(int)
@@ -918,7 +927,7 @@ def main_model():
     y_predict = model.predict(features_test)
 
     plan_create['prob'] = y_predict
-    threshold = pd.Series(y_predict).sort_values(ascending=False).reset_index(drop=True)[int(y_predict.shape[0] * 0.3)]
+    threshold = pd.Series(y_predict).sort_values(ascending=False).reset_index(drop=True)[int(y_predict.shape[0] * 0.7)]
 
     plan_result = plan_create[plan_create['prob'] >= threshold]
     plan_result['rank_ad_im'] = plan_result.groupby(['ad_account_id', 'image_id'])['prob'].rank(ascending=False,
@@ -975,11 +984,13 @@ def main_model():
     elif n_time > d_time_3:
         plan_num = get_plan_num_3()
     # print(plan_num)
-    plan_num = 0
+    plan_num = 50
     # 朋友圈200,非朋友圈20
     plan_result_1 = plan_result[plan_result['site_set'] == "['SITE_SET_MOMENTS']"]
-    if plan_result_1.shape[0] > 150:
-        plan_result_1 = plan_result_1.sample(150, weights=plan_result_1['weight'])
+    # 朋友圈计划数量
+    if plan_result_1.shape[0] > 0:
+        plan_result_1 = plan_result_1.sample(0, weights=plan_result_1['weight'])
+    # 非朋友圈计划数量
     plan_result_2 = plan_result[plan_result['site_set'] != "['SITE_SET_MOMENTS']"]
     if plan_result_1.shape[0] != 0:
         if plan_result_2.shape[0] > plan_num:
@@ -993,12 +1004,22 @@ def main_model():
     # if plan_result.shape[0] > plan_num:
     #     plan_result = plan_result.sample(plan_num, weights=plan_result['weight'])
 
-    if n_time < d_time_2:
-        ad_num = plan_result['image_id'].value_counts()
-        for ad in np.setdiff1d(plan_create['image_id'].values, ad_num[ad_num >= 2].index):
-            add_plan = plan_result_pr[plan_result_pr['image_id'] == ad].sort_values('prob', ascending=False)[0:2]
-            add_plan['site_set'] = add_plan['site_set'].map(str)
-            plan_result = plan_result.append(add_plan)
+    ad_account_id_group = np.array([8082, 8854, 8817, 8843, 8077, 8839])
+    # ad_account_id_group = np.array([8854, 8817, 8839])
+    plan_num = 5
+    plan_result_n = pd.DataFrame()
+    for account_id in ad_account_id_group:
+        plan_result_ = plan_result[plan_result['ad_account_id'] == account_id]
+        plan_result_ = plan_result_.sample(plan_num)
+        plan_result_n = plan_result_n.append(plan_result_)
+    plan_result = plan_result_n
+
+    # if n_time < d_time_2:
+    #     ad_num = plan_result['image_id'].value_counts()
+    #     for ad in np.setdiff1d(plan_create['image_id'].values, ad_num[ad_num >= 2].index):
+    #         add_plan = plan_result_pr[plan_result_pr['image_id'] == ad].sort_values('prob', ascending=False)[0:2]
+    #         add_plan['site_set'] = add_plan['site_set'].map(str)
+    #         plan_result = plan_result.append(add_plan)
 
     plan_result['rank_ad_im'] = plan_result.groupby(['ad_account_id', 'image_id'])['prob'].rank(ascending=False,
                                                                                                 method='first')
@@ -1006,7 +1027,8 @@ def main_model():
 
     plan_result = plan_result.drop(['create_time', 'create_date', 'prob', 'rank_ad_im', 'label_ids', 'weight'],
                                    axis=1)
-    plan_result = plan_result[plan_result['site_set'] == "['SITE_SET_MOMENTS']"]  ## TODO 只跑朋友圈
+    # plan_result = plan_result[plan_result['site_set'] == "['SITE_SET_MOMENTS']"]  ## TODO 只跑朋友圈
+    plan_result = plan_result[plan_result['site_set'] == "['SITE_SET_MOBILE_UNION']"]  ## TODO 只跑优量汇
     # [SITE_SET_WECHAT] 公众号和小程序adcreative_template_id只跑1480、560、720、721、1064五种
     plan_result = plan_result[~((plan_result['site_set'] == "['SITE_SET_WECHAT']") & (
         ~plan_result['adcreative_template_id'].isin([1480, 560, 720, 721, 1064])))]
@@ -1051,6 +1073,14 @@ def main_model():
 
     # 年龄定向
     plan_result['age'] = plan_result['age'].apply(lambda x: [{'min': 20, 'max': 50}])
+
+    # 固定为roi出价方式  ##TODO
+    plan_result['optimization_goal'] = plan_result['optimization_goal'].apply(lambda x: 'OPTIMIZATIONGOAL_APP_ACTIVATE')  ## TODO  固定ROI
+    plan_result['deep_conversion_type'] = plan_result['optimization_goal'].apply(lambda x: 'DEEP_CONVERSION_WORTH' if x == 'OPTIMIZATIONGOAL_APP_ACTIVATE' else np.nan)
+    plan_result['deep_conversion_worth_spec'] = plan_result['optimization_goal'].apply(lambda x: {'goal': 'GOAL_1DAY_PURCHASE_ROAS', 'expected_roi': 0.02} if x == 'OPTIMIZATIONGOAL_APP_ACTIVATE' else np.nan)
+    plan_result['bid_amount'] = plan_result['optimization_goal'].apply(lambda x: random.randint(9000, 10000) if x == 'OPTIMIZATIONGOAL_APP_ACTIVATE'
+                            else (random.randint(95000, 100000) if x == 'OPTIMIZATIONGOAL_APP_PURCHASE'
+                                  else (random.randint(310000, 320000))))
 
     # 定义组合json
     plan_result['intention'] = plan_result['intention_targeting_tags'].apply(lambda x: {'targeting_tags': x})
@@ -1105,12 +1135,30 @@ def main_model():
                       "intention", "interest", "behavior"], axis=1, inplace=True)
 
     # plan_result['operation'] = 'disable'
+    plan_result['plan_auto_task_id'] = "11427,12063"
     plan_result['op_id'] = 13268
     plan_result['flag'] = 'GDT'
     plan_result['game_name'] = '幸存者挑战'
     plan_result['platform'] = 1
     plan_result['ad_account_id'] = plan_result['ad_account_id'].astype(int)
     plan_result['site_set'] = plan_result['site_set'].apply(ast.literal_eval)
+    # # 开启一键起量
+    # plan_result['auto_acquisition_enabled'] = True
+    # plan_result['auto_acquisition_budget'] = 6666
+    # # 开启自动扩量
+    # plan_result['expand_enabled'] = True
+    # plan_result['expand_targeting'] = plan_result['expand_targeting'].apply(lambda x: ['age'])
+    # # # 开启加速投放
+    # plan_result['speed_mode'] = 'SPEED_MODE_FAST'
+    # 固定品牌名
+    plan_result = plan_result.reset_index(drop=True)
+    for i in range(plan_result.shape[0]):
+        a = plan_result.loc[i, 'adcreative_elements'].copy()
+        a['brand'] = {'brand_name': '幸存者挑战', 'brand_img': 81958}
+        plan_result.loc[i, 'adcreative_elements'] = str(a)
+
+    plan_result['adcreative_elements'] = plan_result['adcreative_elements'].apply(ast.literal_eval)
+
     # 周三周四更新，凌晨不跑计划
     plan_result['time_series'] = plan_result['time_series'].apply(
         lambda x: x[0:96] + '1111111111000000000011' + x[118:144] + '1111111111000000000011' + x[166:])
