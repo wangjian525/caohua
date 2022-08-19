@@ -1,0 +1,26 @@
+2021-06-22 12:02:35,258 - web_application - INFO - ModelServiceNewImage web server start!
+2021-06-22 12:04:41,338 - web_application - INFO - ModelServiceNewImage web server start!
+2021-06-22 12:04:47,380 - root - INFO - collect data
+2021-06-22 12:07:10,766 - web_application - INFO - ModelServiceNewImage web server start!
+2021-06-22 12:07:13,356 - root - INFO - collect data
+2021-06-22 12:10:04,215 - root - INFO - do service
+2021-06-22 12:10:20,297 - root - ERROR - Error while compiling statement: FAILED: SemanticException [Error 10294]: Attempt to do update or delete using transaction manager that does not support these operations.
+2021-06-22 12:14:38,049 - web_application - INFO - ModelServiceNewImage web server start!
+2021-06-22 12:15:13,274 - web_application - INFO - ModelServiceNewImage web server start!
+2021-06-22 14:35:25,194 - web_application - INFO - ModelServiceNewImage web server start!
+2021-06-22 14:36:07,225 - web_application - INFO - ModelServiceNewImage web server start!
+2021-06-22 14:36:10,618 - root - INFO - collect data
+2021-06-22 14:39:24,504 - root - INFO - do service
+2021-06-22 14:39:36,778 - root - ERROR - Error while compiling statement: FAILED: SemanticException [Error 10294]: Attempt to do update or delete using transaction manager that does not support these operations.
+2021-06-22 14:52:18,522 - web_application - INFO - ModelServiceNewImage web server start!
+2021-06-22 16:00:19,923 - web_application - INFO - ModelServiceNewImage web server start!
+2021-06-22 16:00:39,554 - web_application - INFO - ModelServiceNewImage web server start!
+2021-06-22 16:00:41,534 - root - INFO - collect data
+2021-06-22 16:03:33,818 - root - INFO - do service
+2021-06-22 16:03:49,360 - root - ERROR - feature_names mismatch: ['label_ids', 'game_ids'] ['label_ids_value', 'game_ids_value']
+expected label_ids, game_ids in input data
+training data did not have the following fields: game_ids_value, label_ids_value
+2021-06-22 19:04:07,259 - web_application - INFO - ModelServiceNewImage web server start!
+2021-06-22 19:04:49,942 - root - INFO - collect data
+2021-06-22 19:07:42,663 - root - INFO - do service
+2021-06-22 19:07:56,127 - root - ERROR - "None of [Index(['label_ids_value', 'game_ids_value'], dtype='object')] are in the [columns]"
